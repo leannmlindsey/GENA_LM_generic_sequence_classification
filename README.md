@@ -77,7 +77,7 @@ python examples/modernGENA/sequence_classification/train.py
 
 ## Citation
 
-- ModernGENA: [Back to BERT in 2026: ModernGENA as a Strong, Efficient Baseline for DNA Foundation Models](https://openreview.net/forum?id=8QsSDzYK97)
+- ModernGENA: [Back to BERT in 2026: ModernGENA as a Strong, Efficient Baseline for DNA Foundation Models]([https://openreview.net/forum?id=8QsSDzYK97](https://www.biorxiv.org/content/10.64898/2026.04.21.719816v1))
 
 - original GENA paper:
 

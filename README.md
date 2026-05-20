@@ -4,6 +4,38 @@
 
 ---
 
+## Relationship to the upstream training code
+
+The fine-tune script in this fork (`finetune_gena_lm_phage.py`) is a thin
+wrapper around `transformers.Trainer` with `AutoModelForSequenceClassification`
+— **the same machinery** the upstream modernGENA reference path uses
+(`examples/modernGENA/sequence_classification/train.py`). Hyperparameter
+defaults are taken from upstream's reference config
+([`examples/modernGENA/sequence_classification/configs/config.yaml`](./examples/modernGENA/sequence_classification/configs/config.yaml)):
+
+| Parameter | Default | Source |
+|-----------|---------|--------|
+| `learning_rate` | 3e-5 | upstream |
+| `weight_decay` | 1e-3 | upstream |
+| `warmup_ratio` | 0.06 | upstream |
+| `lr_scheduler_type` | linear | upstream |
+| `per_device_train_batch_size` | 8 | upstream |
+| `gradient_accumulation_steps` | 4 | upstream (effective batch 32) |
+| `num_train_epochs` | 10 | upstream |
+| `early_stopping_patience` | 30 evaluations | upstream |
+| `metric_for_best_model` | `eval_mcc` | **LAMBDA-specific** (the LAMBDA paper reports MCC) |
+
+The two intentional deviations are (1) the best-model selection metric (MCC
+rather than upstream's PR-AUC, because the LAMBDA paper uses MCC) and (2)
+mixed precision (`--bf16` on for A100 efficiency; upstream defaults to fp32).
+
+The upstream alternative training paths — the per-task scripts under
+[`downstream_tasks/`](./downstream_tasks/) (which use a custom
+`lm_experiments_tools.Trainer` with Horovod for distributed training and
+optional RMT memory tokens for long sequences) — are preserved unchanged.
+Use them directly if you want their custom training loop instead of the
+HF `Trainer` path used here.
+
 ## What this fork adds
 
 | File | Purpose |

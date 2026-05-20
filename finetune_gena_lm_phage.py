@@ -95,14 +95,20 @@ def parse_args():
     )
     
     # Training arguments
-    parser.add_argument("--output_dir", type=str, default="./nt_output")
+    parser.add_argument("--output_dir", type=str, default="./gena_lm_output")
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
     parser.add_argument("--learning_rate", type=float, default=3e-5)
-    parser.add_argument("--weight_decay", type=float, default=0.01)
-    parser.add_argument("--num_train_epochs", type=int, default=3)
-    parser.add_argument("--warmup_ratio", type=float, default=0.1)
+    parser.add_argument("--weight_decay", type=float, default=1e-3)
+    parser.add_argument("--num_train_epochs", type=int, default=10)
+    parser.add_argument("--warmup_ratio", type=float, default=0.06)
+    parser.add_argument(
+        "--lr_scheduler_type", type=str, default="linear",
+        choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
+                 "constant", "constant_with_warmup", "inverse_sqrt"],
+        help="LR scheduler type. Default 'linear' matches the upstream modernGENA reference config.",
+    )
     parser.add_argument("--logging_steps", type=int, default=100)
     parser.add_argument("--eval_strategy", type=str, default="epoch",
                         help="Evaluation strategy: 'epoch', 'steps', or 'no'")
@@ -114,7 +120,7 @@ def parse_args():
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--load_best_model_at_end", action="store_true", default=True)
     parser.add_argument("--metric_for_best_model", type=str, default="eval_mcc")
-    parser.add_argument("--early_stopping_patience", type=int, default=3,
+    parser.add_argument("--early_stopping_patience", type=int, default=30,
                         help="Stop if no improvement for N evaluations (0 to disable)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataloader_num_workers", type=int, default=4)
@@ -382,6 +388,7 @@ def main():
         num_train_epochs=args.num_train_epochs,
         weight_decay=args.weight_decay,
         warmup_ratio=args.warmup_ratio,
+        lr_scheduler_type=args.lr_scheduler_type,
         logging_steps=args.logging_steps,
         load_best_model_at_end=args.load_best_model_at_end,
         metric_for_best_model=args.metric_for_best_model,

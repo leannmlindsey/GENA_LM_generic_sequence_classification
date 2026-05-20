@@ -1,0 +1,22 @@
+# Requirements for the LAMBDA-evaluation scripts in this fork.
+# Installed by setup_lambda.sh into a fresh `gena_lm` conda env so as not to
+# conflict with the upstream requirements.txt (which pins old torch / transformers
+# versions for the original GENA-LM and modernGENA codebases).
+
+# Core stack
+torch>=2.0.0
+transformers>=4.35.0
+datasets>=2.14.0
+accelerate>=0.24.0
+
+# Metrics and utilities
+scikit-learn>=1.3.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Visualization and progress
+matplotlib>=3.7.0
+tqdm>=4.65.0
+
+# Useful for embedding analysis (PCA plots and friends)
+einops>=0.7.0

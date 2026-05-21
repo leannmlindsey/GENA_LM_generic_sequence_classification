@@ -1,23 +1,23 @@
-# Requirements for the LAMBDA-evaluation scripts in this fork.
-# Installed by setup_lambda.sh into a fresh `gena_lm` conda env so as not to
-# conflict with the upstream requirements.txt (which pins old torch / transformers
-# versions for the original GENA-LM and modernGENA codebases).
+# Extras installed on top of upstream's examples/modernGENA/environment.yml
+# by setup_lambda.sh. The upstream env covers torch / transformers /
+# accelerate / scikit-learn / numpy / pandas / tensorboard / hydra-core /
+# pysam / pybigwig with their tested version pins; these are the additional
+# packages the LAMBDA evaluation scripts in this repo need on top of that.
+#
+# If you'd rather skip the env-file step and install everything from this
+# requirements file alone, you also need the upstream packages listed in
+# examples/modernGENA/environment.yml.
 
-# Core stack
-torch>=2.0.0
-transformers>=4.35.0
-datasets>=2.14.0
-accelerate>=0.24.0
+# HF Trainer dataset loading (in finetune_gena_lm_phage.py)
+datasets>=2.14,<4.0
 
-# Metrics and utilities
-scikit-learn>=1.3.0
-scipy>=1.10.0
-pandas>=2.0.0
-numpy>=1.24.0
+# Plotting (embedding analysis figures, GC distribution figure in
+# the LAMBDA baselines script)
+matplotlib>=3.7,<4.0
+scipy>=1.10,<2.0
 
-# Visualization and progress
-matplotlib>=3.7.0
-tqdm>=4.65.0
+# Progress bars in the inference scripts
+tqdm>=4.65,<5.0
 
-# Useful for embedding analysis (PCA plots and friends)
-einops>=0.7.0
+# Some HuggingFace models exercise einops via trust_remote_code
+einops>=0.7,<1.0

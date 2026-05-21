@@ -99,7 +99,7 @@ fi
 mkdir -p "${OUTPUT_DIR}"
 
 # Get the directory of this script (for finding run_inference.sh)
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts"
 INFERENCE_SCRIPT="${SCRIPT_DIR}/run_inference.sh"
 
 if [ ! -f "${INFERENCE_SCRIPT}" ]; then

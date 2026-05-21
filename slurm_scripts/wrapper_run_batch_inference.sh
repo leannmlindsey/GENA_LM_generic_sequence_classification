@@ -16,16 +16,16 @@
 #   /path/to/dataset1.csv
 #   /path/to/dataset2.csv
 #   /path/to/dataset3.csv
-#INPUT_LIST="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts/input_files_2k.txt"
-INPUT_LIST="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts/genome_files_2k.txt"
+#INPUT_LIST="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts/input_files_2k.txt"
+INPUT_LIST="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts/genome_files_2k.txt"
 # === REQUIRED: Output Directory ===
 # All predictions and SLURM logs will be saved here
-OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/results/inference/2k"
+OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/results/inference/2k"
 
 # === REQUIRED: Model Configuration ===
 # Path to fine-tuned model directory (or HuggingFace model name)
-#MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
-MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
+#MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
+MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
 
 # === OPTIONAL: Inference Parameters ===
 BATCH_SIZE="16"
@@ -67,7 +67,7 @@ if [[ "${MODEL_PATH}" != *"/"* ]] || [ -d "${MODEL_PATH}" ]; then
 fi
 
 # Get script directory
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts"
 
 echo "=========================================="
 echo "Submitting GENA-LM Batch Inference Jobs"

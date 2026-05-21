@@ -15,11 +15,11 @@
 
 # === REQUIRED: Input File ===
 # Path to a test CSV file with sequences (use a representative sample)
-INPUT_CSV="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/test_data/benchmark_sample.csv"
+INPUT_CSV="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/test_data/benchmark_sample.csv"
 
 # === REQUIRED: Model Configuration ===
 # Path to fine-tuned model directory
-MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
+MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
 
 # === OPTIONAL: Inference Parameters ===
 BATCH_SIZE="16"
@@ -42,8 +42,8 @@ TIMED_RUNS="3"
 #####################################################################
 
 # Get script directory and project root
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts"
-PROJECT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts"
+PROJECT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 
 # Validate configuration
 if [ ! -f "${INPUT_CSV}" ]; then

@@ -98,7 +98,7 @@ len="4k"
 
 OUTPUT_DIR="./output/${f}/${len}/gena_lm_lambda_${f}_${len}_${SEED}_${LEARNING_RATE}_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$OUTPUT_DIR"
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 
 # ============================================================
 # Print configuration

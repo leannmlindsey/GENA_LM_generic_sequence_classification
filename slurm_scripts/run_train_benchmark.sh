@@ -60,8 +60,8 @@ EPOCHS=3
 MAX_LENGTH=512  # For 2k sequences: 2000/6 = ~341 tokens
 
 # Base output directory
-OUTPUT_BASE="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/benchmark"
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification"
+OUTPUT_BASE="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/benchmark"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 
 # Create output directory
 mkdir -p "${OUTPUT_BASE}"

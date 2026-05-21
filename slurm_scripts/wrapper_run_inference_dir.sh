@@ -19,11 +19,11 @@ INPUT_DIR="/home/lindseylm/lindseylm/lambda_final/phoenix/segments/2k_1k"
 
 # === REQUIRED: Output Directory ===
 # All predictions will be saved here as {basename}_predictions.csv
-OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/results/inference/lambda_dir_test"
+OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/results/inference/lambda_dir_test"
 
 # === REQUIRED: Model Configuration ===
 # Path to fine-tuned model directory
-MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
+MODEL_PATH="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
 
 # === OPTIONAL: Inference Parameters ===
 BATCH_SIZE="16"
@@ -47,8 +47,8 @@ SAVE_METRICS="true"
 #####################################################################
 
 # Script directory and project root
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts"
-PROJECT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts"
+PROJECT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 
 # Validate configuration
 if [ ! -d "${INPUT_DIR}" ]; then

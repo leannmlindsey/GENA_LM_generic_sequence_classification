@@ -26,8 +26,8 @@ export TOKENIZERS_PARALLELISM=false
 
 nvidia-smi
 
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification"
-OUTPUT_BASE="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/memory_test"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
+OUTPUT_BASE="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/memory_test"
 mkdir -p "${OUTPUT_BASE}"
 
 # We'll use the 4k dataset for 4k test, need 8k dataset for 8k test

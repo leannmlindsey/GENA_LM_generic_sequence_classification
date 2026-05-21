@@ -34,7 +34,7 @@ EVAL_STRATEGY="steps"
 EVAL_STEPS="100"
 
 # Script directory
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 
 #####################################################################
 # END CONFIGURATION

@@ -21,7 +21,7 @@ DATASET_DIR="/home/lindseylm/lindseylm/lambda_final/merged_datasets_filtered/4k"
 #DATASET_DIR="/home/lindseylm/lindseylm/lambda_final/merged_datasets_filtered/8k"
 
 # === REQUIRED: Output Directory ===
-OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/output/filtered/4k"
+OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/4k"
 
 # === Sequence Length Configuration ===
 # MAX_LENGTH is in TOKENS, not nucleotides!
@@ -55,7 +55,7 @@ EVAL_STEPS="500"
 #####################################################################
 
 # Get script directory
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA_LM/GENA_LM_generic_sequence_classification/slurm_scripts"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts"
 TRAIN_SCRIPT="${SCRIPT_DIR}/run_optimized_train.sh"
 
 # Parse command line arguments

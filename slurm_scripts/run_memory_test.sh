@@ -18,7 +18,6 @@ echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
 
 # Load modules
-module load conda
 module load CUDA/12.8
 source activate gena_lm
 export PYTHONNOUSERSITE=1

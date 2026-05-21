@@ -30,7 +30,6 @@ echo "  Upstream env:    ${UPSTREAM_ENV_YML}"
 echo "============================================================"
 
 # Adjust the module loads to match your cluster — these are the Biowulf names.
-module load conda
 module load CUDA/12.8
 
 # Step 1: create env from upstream's environment.yml (overrides the `name:`

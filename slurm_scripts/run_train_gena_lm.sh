@@ -27,12 +27,18 @@ echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
-# Load modules
-module load conda
-module load CUDA/12.8
+# Load modules (suppress errors for non-Biowulf systems)
+module load conda 2>/dev/null || true
+module load CUDA/12.8 2>/dev/null || true
 
-# Activate conda environment
-source activate gena_lm
+# Set CUDA_HOME if not set
+if [ -z "${CUDA_HOME:-}" ]; then
+    export CUDA_HOME=$(dirname $(dirname $(which nvcc 2>/dev/null))) 2>/dev/null || true
+fi
+
+# Activate conda environment (tries modern `conda activate` then falls back
+# to legacy `source activate`)
+conda activate gena_lm 2>/dev/null || source activate gena_lm 2>/dev/null || true
 
 # Check GPU availability
 echo ""
@@ -62,8 +68,10 @@ export TOKENIZERS_PARALLELISM=false
 MODEL_NAME="AIRI-Institute/gena-lm-bert-base-t2t"
 
 # Dataset directory — must contain train.csv, dev.csv, test.csv
-# Each CSV with columns: sequence, label
-DATASET_DIR="/home/lindseylm/lindseylm/lambda_final/merged_datasets_filtered/4k"
+# Each CSV with columns: sequence, label.
+# Use the physical /gpfs path rather than the /home/lindseylm/lindseylm symlink
+# (compute nodes resolve the physical path more reliably).
+DATASET_DIR="/gpfs/gsfs12/users/Irp-jiang/share/lindseylm/lambda_final/merged_datasets_filtered/4k"
 
 # Seed (overridable via the first sbatch positional arg)
 SEED=${1:-42}

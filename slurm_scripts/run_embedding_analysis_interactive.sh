@@ -33,7 +33,6 @@ echo "Running on node: $(hostname)"
 echo ""
 
 # Load modules (comment out if not on Biowulf/HPC)
-module load conda 2>/dev/null || true
 module load CUDA/12.8 2>/dev/null || true
 
 # Set CUDA_HOME if not set

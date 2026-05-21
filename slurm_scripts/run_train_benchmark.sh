@@ -21,7 +21,6 @@ echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
 # Load modules
-module load conda
 module load CUDA/12.8
 
 # Activate conda environment

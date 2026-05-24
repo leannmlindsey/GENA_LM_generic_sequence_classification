@@ -66,8 +66,9 @@ fi
 cd "${SCRIPT_DIR}"
 echo "Working directory: $(pwd)"
 
-# Set output directory
-OUTPUT_DIR=${OUTPUT_DIR:-./results/embedding_analysis/$(basename ${CSV_DIR})}
+# Set output directory — use absolute path so output survives even if cwd
+# changes or SLURM drops the job in /lscratch.
+OUTPUT_DIR=${OUTPUT_DIR:-${SCRIPT_DIR}/results/embedding_analysis/$(basename ${CSV_DIR})}
 mkdir -p "${OUTPUT_DIR}"
 
 echo ""

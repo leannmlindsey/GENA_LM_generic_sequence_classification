@@ -96,9 +96,13 @@ MAX_LENGTH=512
 f="filtered"
 len="4k"
 
-OUTPUT_DIR="./output/${f}/${len}/gena_lm_lambda_${f}_${len}_${SEED}_${LEARNING_RATE}_$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$OUTPUT_DIR"
 SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
+cd "$SCRIPT_DIR" || { echo "ERROR: cannot cd to $SCRIPT_DIR"; exit 1; }
+
+# Absolute output path — relative paths resolve to the SLURM job's cwd, which
+# on Biowulf is often /lscratch/$SLURM_JOB_ID and is wiped at job end.
+OUTPUT_DIR="${SCRIPT_DIR}/output/${f}/${len}/gena_lm_lambda_${f}_${len}_${SEED}_${LEARNING_RATE}_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$OUTPUT_DIR"
 
 # ============================================================
 # Print configuration

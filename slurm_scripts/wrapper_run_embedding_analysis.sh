@@ -27,7 +27,7 @@ export CSV_DIR="/home/lindseylm/lindseylm/lambda_final/merged_datasets_filtered/
 export MODEL_PATH="AIRI-Institute/gena-lm-bert-base-t2t"
 
 # === OPTIONAL: Output Directory ===
-# Leave empty to use default: ./results/embedding_analysis/$(basename $CSV_DIR)
+# Leave empty to use default: ${REPO_DIR}/results/embedding_analysis/$(basename $CSV_DIR)
 export OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/FINAL_RESULTS/GENA-LM/embedding_analysis/2k"
 
 # === OPTIONAL: Hyperparameters ===
@@ -80,9 +80,11 @@ fi
 # Get dataset name for job naming
 DATASET_NAME=$(basename "${CSV_DIR}")
 
-# Set default output directory if not specified
+# Set default output directory if not specified — absolute path so the env
+# var passed to sbatch isn't resolved against the compute node's /lscratch cwd.
 if [ -z "${OUTPUT_DIR}" ]; then
-    export OUTPUT_DIR="./results/embedding_analysis/${DATASET_NAME}"
+    REPO_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
+    export OUTPUT_DIR="${REPO_DIR}/results/embedding_analysis/${DATASET_NAME}"
 fi
 
 echo "=========================================="

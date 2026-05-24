@@ -26,9 +26,22 @@
 #     (we substitute eval_f1 since HF Trainer's default compute_metrics
 #     doesn't compute pr_auc without extra wiring — both are logged.)
 #
-# To run BOTH variants in parallel, just submit twice:
+#   bertbase — GENA-LM BERT base (only makes sense for the 2k window;
+#              BERT base caps at 512 tokens ≈ 3 kb so 4k/8k get truncated)
+#     MODEL_NAME=AIRI-Institute/gena-lm-bert-base-t2t
+#     Recipe: downstream_tasks/promoter_prediction/finetune_promoter_2000.sh
+#     LR=1e-4, WD=0, constant_with_warmup, optimize_metric=f1
+#     (Note: upstream's BERT recipe also uses body_lr_multiplier=0.1 to
+#      give the backbone a 10x lower LR than the classifier head; HF
+#      Trainer doesn't support this natively, so we skip it. Small
+#      deviation; if you need strict fidelity, ask for a custom
+#      create_optimizer override.)
+#     Suggested submit: bash submit_train_all_windows.sh 42 "2k" bertbase
+#
+# To run multiple variants in parallel, submit each in its own command:
 #   bash submit_train_all_windows.sh 42 "2k 4k 8k" bigbird
 #   bash submit_train_all_windows.sh 42 "2k 4k 8k" moderngena
+#   bash submit_train_all_windows.sh 42 "2k"       bertbase
 
 set -e
 
@@ -62,8 +75,16 @@ case "${VARIANT}" in
         METRIC_FOR_BEST_MODEL="eval_f1"
         VARIANT_TAG="moderngena"
         ;;
+    bertbase)
+        MODEL_NAME="AIRI-Institute/gena-lm-bert-base-t2t"
+        LEARNING_RATE="1e-4"
+        WEIGHT_DECAY="0.0"
+        LR_SCHEDULER_TYPE="constant_with_warmup"
+        METRIC_FOR_BEST_MODEL="eval_f1"
+        VARIANT_TAG="bertbase"
+        ;;
     *)
-        echo "ERROR: invalid VARIANT='${VARIANT}' (use bigbird|moderngena)"
+        echo "ERROR: invalid VARIANT='${VARIANT}' (use bigbird|moderngena|bertbase)"
         exit 1
         ;;
 esac

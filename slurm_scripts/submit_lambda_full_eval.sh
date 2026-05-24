@@ -5,38 +5,60 @@
 # LAMBDA's 03_build_website_data.py expects.
 #
 # Usage:
-#   1. Fill in the checkpoint paths + MAX_LENGTH for each window below.
-#      Leave a checkpoint blank ("") to skip that window.
-#   2. bash submit_lambda_full_eval.sh
+#   bash submit_lambda_full_eval.sh                 # default variant: bigbird
+#   bash submit_lambda_full_eval.sh bigbird
+#   bash submit_lambda_full_eval.sh moderngena
 #
+# Before running, fill in CHECKPOINT_{2K,4K,8K} for the chosen variant in the
+# preset block below. Leave a checkpoint blank ("") to skip that window.
 
 #####################################################################
-# CONFIGURATION
+# COMMON CONFIGURATION
 #####################################################################
 
-# Output identity — used as ${RESULTS_ROOT}/${MODEL_NAME}/<category>/<window>/
-MODEL_NAME="gena_lm"
-
-# Roots
+# Roots (shared across variants)
 DATASET_ROOT="/gpfs/gsfs12/users/Irp-jiang/share/lindseylm/lambda_final"
 RESULTS_ROOT="/data/lindseylm/GLM_EVALUATIONS/MODELS/FINAL_RESULTS"
 
-# Per-window fine-tuned checkpoints (leave blank to skip a window)
-CHECKPOINT_2K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_8_3e-5_20260120_063339/checkpoint-40995"
-CHECKPOINT_4K=""
-CHECKPOINT_8K=""
-
 # Per-window tokenizer max_length — should match what you trained with.
-# GENA-LM BERT base context is 512 tokens (~3 kb). If you fine-tuned on the
-# 4k/8k splits with a BigBird variant, raise these accordingly (1024/2048).
+# Set by training recipe: 2k → 512 (≈3 kb), 4k → 1024 (≈6 kb), 8k → 2048 (≈12 kb).
 MAX_LENGTH_2K="512"
-MAX_LENGTH_4K="512"
-MAX_LENGTH_8K="512"
+MAX_LENGTH_4K="1024"
+MAX_LENGTH_8K="2048"
 
-# Inference hyperparameters (apply to every window)
+# Inference hyperparameters (apply to every window of every variant)
 BATCH_SIZE="16"
 THRESHOLD="0.5"
 PRECISION="bf16"        # bf16 | fp16 | fp32
+
+#####################################################################
+# VARIANT PRESETS — fill in the checkpoint paths for each variant after
+# training completes. The MODEL_NAME determines the output subdir under
+# RESULTS_ROOT, which becomes the model column in the aggregator and the
+# grid-search results.
+#####################################################################
+
+VARIANT="${1:-bigbird}"
+
+case "${VARIANT}" in
+    bigbird)
+        MODEL_NAME="gena_lm_bigbird"
+        CHECKPOINT_2K=""
+        CHECKPOINT_4K=""
+        CHECKPOINT_8K=""
+        ;;
+    moderngena)
+        MODEL_NAME="gena_lm_moderngena"
+        CHECKPOINT_2K=""
+        CHECKPOINT_4K=""
+        CHECKPOINT_8K=""
+        ;;
+    *)
+        echo "ERROR: invalid VARIANT='${VARIANT}' (use bigbird|moderngena)"
+        echo "       To add other variants (e.g. bertbase), extend the case block here."
+        exit 1
+        ;;
+esac
 
 #####################################################################
 # END CONFIGURATION
@@ -60,7 +82,7 @@ fi
 mkdir -p "${RESULTS_ROOT}"
 
 echo "=========================================="
-echo "LAMBDA full evaluation — ${MODEL_NAME}"
+echo "LAMBDA full evaluation — ${VARIANT} (${MODEL_NAME})"
 echo "=========================================="
 echo "Dataset root: ${DATASET_ROOT}"
 echo "Results root: ${RESULTS_ROOT}"
@@ -75,7 +97,7 @@ submit_window () {
     local max_length="$3"
 
     if [ -z "${checkpoint}" ]; then
-        echo "[${window}] SKIP — no checkpoint configured"
+        echo "[${window}] SKIP — no checkpoint configured for ${VARIANT}"
         return
     fi
 
@@ -91,7 +113,7 @@ submit_window () {
 
     echo "[${window}] Submitting (checkpoint: ${checkpoint}, max_length: ${max_length})"
     sbatch \
-        --job-name="gena_lm_lambda_${window}" \
+        --job-name="${MODEL_NAME}_lambda_${window}" \
         --export=ALL,\
 WINDOW="${window}",\
 MODEL_PATH="${checkpoint}",\
@@ -112,10 +134,10 @@ submit_window "8k" "${CHECKPOINT_8K}" "${MAX_LENGTH_8K}"
 echo ""
 echo "Monitor: squeue -u \$USER"
 echo ""
-echo "When ALL jobs finish, aggregate to the LAMBDA dashboard format:"
-echo "  cd /data/lindseylm/GLM_EVALUATIONS/NAR_GENOMICS_LAMBDA_REPO/LAMBDA/replication"
-echo "  python 03_build_website_data.py \\"
-echo "      --predictions ${RESULTS_ROOT} \\"
-echo "      --ground-truth \${DATASET_ROOT}/ground_truth.csv \\"
-echo "      --taxonomy \${TAXONOMY_CSV} \\"
-echo "      --output ${RESULTS_ROOT}/aggregated"
+echo "When all inference jobs finish for BOTH variants, the post-inference"
+echo "workflow is:"
+echo "  1. Symlink genome_wide predictions into per_segment layout:"
+echo "       bash ${SCRIPT_DIR}/link_for_grid_search.sh"
+echo "  2. Run grid search (matches what was done for DNABERT2/NTv2/etc.):"
+echo "       bash ${SCRIPT_DIR}/run_grid_search.sh"
+echo "  3. Apply best params and aggregate into LAMBDA's metrics_summary.csv."

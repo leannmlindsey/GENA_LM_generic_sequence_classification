@@ -1,7 +1,28 @@
 #!/usr/bin/env python3
 """
-Fine-tuning GENA-LM for binary sequence classification.
-Based on official HuggingFace notebooks for NT fine-tuning.
+Fine-tuning GENA-LM / ModernGENA for binary sequence classification.
+
+This is an HF Trainer adaptation of the upstream GENA-LM long-context
+fine-tuning recipe in
+  downstream_tasks/promoter_prediction/finetune_promoter_16000.sh
+(BigBird 4096-token training on 16 kb sequences for binary promoter
+classification). Upstream's SLURM script uses lm_experiments_tools.Trainer
++ Horovod + APEX + their internal `.pth` checkpoints. We substitute HF
+Trainer, which the upstream README explicitly sanctions:
+  "you can use HF Transformers Trainer, PyTorch Lightning, or Accelerate
+   and PyTorch with custom training loops instead."
+  -- README_previous_generation.md L193-194
+
+For BigBird specifically the upstream README also documents the HF idiom:
+  from transformers import AutoTokenizer, BigBirdForSequenceClassification
+  model = BigBirdForSequenceClassification.from_pretrained(
+              'AIRI-Institute/gena-lm-bigbird-base-t2t')
+
+For ModernGENA, the upstream reference is
+  examples/modernGENA/sequence_classification/train.py
+which already uses HF Trainer; this script's defaults can be flipped to
+match its hyperparameters with --lr_scheduler_type linear --weight_decay
+1e-3 --learning_rate 3e-5 --metric_for_best_model eval_pr_auc.
 
 Optimization Features:
 - Mixed precision training (fp16/bf16) for 2-3x speedup
@@ -76,8 +97,15 @@ def parse_args():
     parser.add_argument(
         "--model_name",
         type=str,
-        default="AIRI-Institute/gena-lm-bert-base-t2t",
-        help="HuggingFace model name or path",
+        default="AIRI-Institute/gena-lm-bigbird-base-t2t",
+        help=(
+            "HuggingFace model name or path. Default 'gena-lm-bigbird-base-t2t' "
+            "is the long-context GENA-LM variant (4096 tokens / ~36 kb context, "
+            "per Fishman et al. 2025). Use a BERT base variant only for sequences "
+            "<= ~3 kb. For ModernGENA, pass 'AIRI-Institute/moderngena-base' "
+            "(switch lr_scheduler_type to 'linear' and weight_decay to 1e-3 "
+            "to match the modernGENA reference config)."
+        ),
     )
     
     # Data arguments
@@ -90,8 +118,13 @@ def parse_args():
     parser.add_argument(
         "--max_length",
         type=int,
-        default=512,
-        help="Maximum sequence length (in tokens). GENA-LM BERT context is 512; BigBird variants support up to 4096 tokens (~12kb).",
+        default=1024,
+        help=(
+            "Maximum sequence length in tokens. GENA-LM uses ~6 bp/token. "
+            "BERT variants cap at 512 tokens (~3 kb). BigBird variants accept "
+            "up to 4096 tokens (~24 kb in practice, 36 kb in the paper). "
+            "For LAMBDA: 2k window → 512; 4k window → 1024; 8k window → 2048."
+        ),
     )
     
     # Training arguments
@@ -99,15 +132,24 @@ def parse_args():
     parser.add_argument("--per_device_train_batch_size", type=int, default=8)
     parser.add_argument("--per_device_eval_batch_size", type=int, default=16)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=4)
-    parser.add_argument("--learning_rate", type=float, default=3e-5)
-    parser.add_argument("--weight_decay", type=float, default=1e-3)
+    # Default hyperparameters follow the upstream GENA-LM BigBird recipe in
+    # downstream_tasks/promoter_prediction/finetune_promoter_16000.sh
+    # (the upstream long-context binary classification recipe), substituted
+    # into HF Trainer per the upstream README's sanctioned alternative:
+    # "you can use HF Transformers Trainer ... instead."
+    parser.add_argument("--learning_rate", type=float, default=1e-4,
+                        help="Default 1e-4 matches upstream BigBird promoter recipe.")
+    parser.add_argument("--weight_decay", type=float, default=0.0,
+                        help="Default 0.0 matches upstream BigBird recipe (no L2).")
     parser.add_argument("--num_train_epochs", type=int, default=10)
-    parser.add_argument("--warmup_ratio", type=float, default=0.06)
+    parser.add_argument("--warmup_ratio", type=float, default=0.06,
+                        help="HF-Trainer-friendly equivalent of upstream's 250 warmup steps "
+                             "(varies with dataset size; ~0.06 is the modernGENA default).")
     parser.add_argument(
-        "--lr_scheduler_type", type=str, default="linear",
+        "--lr_scheduler_type", type=str, default="constant_with_warmup",
         choices=["linear", "cosine", "cosine_with_restarts", "polynomial",
                  "constant", "constant_with_warmup", "inverse_sqrt"],
-        help="LR scheduler type. Default 'linear' matches the upstream modernGENA reference config.",
+        help="Default 'constant_with_warmup' matches upstream BigBird recipe.",
     )
     parser.add_argument("--logging_steps", type=int, default=100)
     parser.add_argument("--eval_strategy", type=str, default="epoch",
@@ -119,9 +161,13 @@ def parse_args():
                         help="Save checkpoint every N steps (only used if save_strategy='steps')")
     parser.add_argument("--save_total_limit", type=int, default=2)
     parser.add_argument("--load_best_model_at_end", action="store_true", default=True)
-    parser.add_argument("--metric_for_best_model", type=str, default="eval_mcc")
-    parser.add_argument("--early_stopping_patience", type=int, default=30,
-                        help="Stop if no improvement for N evaluations (0 to disable)")
+    parser.add_argument("--metric_for_best_model", type=str, default="eval_f1",
+                        help="Default 'eval_f1' matches upstream BigBird promoter recipe "
+                             "(--optimize_metric f1). All of f1/mcc/pr_auc/accuracy are "
+                             "computed and logged each eval; this only controls which one "
+                             "drives best-checkpoint selection.")
+    parser.add_argument("--early_stopping_patience", type=int, default=7,
+                        help="Default 7 matches upstream BigBird recipe. 0 to disable.")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataloader_num_workers", type=int, default=4)
 

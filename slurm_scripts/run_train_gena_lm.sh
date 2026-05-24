@@ -17,8 +17,11 @@
 # the LAMBDA paper uses MCC as the primary metric. Mixed precision (`--bf16`)
 # is enabled by default for A100 efficiency; upstream's config has bf16=false.
 #
-# Usage: sbatch run_train_gena_lm.sh [SEED]
-# Example: sbatch run_train_gena_lm.sh 42
+# Usage: sbatch run_train_gena_lm.sh [SEED] [WINDOW]
+#   SEED   default 42
+#   WINDOW default 4k — one of 2k | 4k | 8k. Selects DATASET_DIR and the
+#          output sub-directory name.
+# Example: sbatch run_train_gena_lm.sh 42 2k
 
 echo "============================================================"
 echo "GENA-LM Fine-tuning"
@@ -59,42 +62,62 @@ export TOKENIZERS_PARALLELISM=false
 # ============================================================
 
 # Model — GENA-LM / modernGENA variants:
-#   AIRI-Institute/gena-lm-bert-base-t2t           BERT, 512 tokens
-#   AIRI-Institute/gena-lm-bert-large-t2t          BERT-large, 512 tokens
-#   AIRI-Institute/gena-lm-bigbird-base-t2t        BigBird, 4096 tokens
-#   AIRI-Institute/gena-lm-bigbird-base-sparse-t2t BigBird-sparse, 4096 tokens
-#   AIRI-Institute/moderngena-base                 ModernBERT, long context
-#   AIRI-Institute/moderngena-large                ModernBERT-large, long context
-MODEL_NAME="AIRI-Institute/gena-lm-bert-base-t2t"
-
-# Dataset directory — must contain train.csv, dev.csv, test.csv
-# Each CSV with columns: sequence, label.
-# Use the physical /gpfs path rather than the /home/lindseylm/lindseylm symlink
-# (compute nodes resolve the physical path more reliably).
-DATASET_DIR="/gpfs/gsfs12/users/Irp-jiang/share/lindseylm/lambda_final/merged_datasets_filtered/4k"
+#   AIRI-Institute/gena-lm-bert-base-t2t           BERT, 512 tokens     (~3 kb)
+#   AIRI-Institute/gena-lm-bert-large-t2t          BERT-large, 512 tok  (~3 kb)
+#   AIRI-Institute/gena-lm-bigbird-base-t2t        BigBird HF, 4096 tok (~24 kb)   ← default
+#   AIRI-Institute/gena-lm-bigbird-base-sparse-t2t BigBird DS sparse    (needs DeepSpeed install)
+#   AIRI-Institute/moderngena-base                 ModernBERT long ctx  (~190 kb cap)
+#   AIRI-Institute/moderngena-large                ModernBERT-large
+#
+# Default: BigBird HF — the long-context variant the upstream README
+# documents for HF Trainer use, and the variant the original GENA-LM
+# paper rates at 36 000 bp context. BERT base is correct only for 2k.
+# For ModernGENA: override at submit time AND set LR=3e-5 WD=1e-3
+# LR_SCHEDULER_TYPE=linear to match modernGENA's reference config.
+MODEL_NAME="${MODEL_NAME:-AIRI-Institute/gena-lm-bigbird-base-t2t}"
 
 # Seed (overridable via the first sbatch positional arg)
 SEED=${1:-42}
 
-# === Hyperparameters (defaults match upstream modernGENA reference config) ===
-LEARNING_RATE=3e-5                # upstream default
-WEIGHT_DECAY=1e-3                 # upstream default (was 0.01 in HF default)
-WARMUP_RATIO=0.06                 # upstream default
-LR_SCHEDULER_TYPE=linear          # upstream default
-BATCH_SIZE=8                      # upstream default
-GRADIENT_ACCUMULATION_STEPS=4     # upstream default (effective batch = 32)
-EPOCHS=10                         # upstream default
-EARLY_STOPPING_PATIENCE=30        # upstream default
-EVAL_STEPS=100                    # upstream default (with --eval_strategy=steps)
-SAVE_STEPS=100                    # upstream default
-SAVE_TOTAL_LIMIT=2                # upstream default
+# Window (overridable via the second sbatch positional arg) — 2k | 4k | 8k
+len=${2:-4k}
+case "${len}" in
+    2k|4k|8k) ;;
+    *) echo "ERROR: invalid WINDOW='${len}' (use 2k|4k|8k)"; exit 1 ;;
+esac
 
-# Max sequence length in tokens. BERT variants = 512, BigBird variants up to 4096.
-# GENA-LM uses 32k BPE (~6 bp/token), so 512 tokens ≈ 3 kb of DNA.
-MAX_LENGTH=512
+# Dataset directory — must contain train.csv, dev.csv, test.csv (sequence,label).
+# Use the physical /gpfs path rather than the /home/lindseylm/lindseylm symlink
+# (compute nodes resolve the physical path more reliably).
+DATASET_DIR="/gpfs/gsfs12/users/Irp-jiang/share/lindseylm/lambda_final/merged_datasets_filtered/${len}"
+
+# === Hyperparameters (defaults match the upstream BigBird recipe in     ===
+# ===  downstream_tasks/promoter_prediction/finetune_promoter_16000.sh)  ===
+LEARNING_RATE=${LEARNING_RATE:-1e-4}             # upstream BigBird recipe (was 3e-5 for modernGENA)
+WEIGHT_DECAY=${WEIGHT_DECAY:-0.0}                # upstream BigBird recipe (no L2)
+WARMUP_RATIO=${WARMUP_RATIO:-0.06}               # HF-friendly equivalent of upstream's 250 steps
+LR_SCHEDULER_TYPE=${LR_SCHEDULER_TYPE:-constant_with_warmup}  # upstream BigBird recipe
+BATCH_SIZE=${BATCH_SIZE:-4}                      # BigBird at 2048 tok eats memory; conservative
+GRADIENT_ACCUMULATION_STEPS=${GRADIENT_ACCUMULATION_STEPS:-16}  # effective batch = 64
+EPOCHS=${EPOCHS:-10}                             # upstream default
+EARLY_STOPPING_PATIENCE=${EARLY_STOPPING_PATIENCE:-7}  # upstream BigBird recipe
+EVAL_STEPS=${EVAL_STEPS:-100}
+SAVE_STEPS=${SAVE_STEPS:-100}
+SAVE_TOTAL_LIMIT=${SAVE_TOTAL_LIMIT:-2}
+METRIC_FOR_BEST_MODEL=${METRIC_FOR_BEST_MODEL:-eval_f1}  # upstream BigBird optimize_metric
+
+# Max sequence length in tokens, set per window. GENA-LM uses 32k BPE
+# (~6 bp/token), so 512 tok ≈ 3 kb, 1024 tok ≈ 6 kb, 2048 tok ≈ 12 kb.
+# 2k window → 512 (fits in BERT-base too); 4k → 1024; 8k → 2048.
+case "${len}" in
+    2k) DEFAULT_MAX_LENGTH=512  ;;
+    4k) DEFAULT_MAX_LENGTH=1024 ;;
+    8k) DEFAULT_MAX_LENGTH=2048 ;;
+esac
+MAX_LENGTH=${MAX_LENGTH:-${DEFAULT_MAX_LENGTH}}
 
 f="filtered"
-len="4k"
+# `len` set above from the second positional arg (default 4k).
 
 SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 cd "$SCRIPT_DIR" || { echo "ERROR: cannot cd to $SCRIPT_DIR"; exit 1; }
@@ -117,6 +140,7 @@ echo "  Per-device batch size: $BATCH_SIZE  (gradient_accum=$GRADIENT_ACCUMULATI
 echo "  Epochs (max): $EPOCHS  (early stopping patience: $EARLY_STOPPING_PATIENCE evals)"
 echo "  Learning rate: $LEARNING_RATE  (scheduler: $LR_SCHEDULER_TYPE, warmup: $WARMUP_RATIO)"
 echo "  Weight decay: $WEIGHT_DECAY"
+echo "  Best-model metric: $METRIC_FOR_BEST_MODEL"
 echo "  Eval/save every: $EVAL_STEPS steps"
 echo "  Seed: $SEED"
 echo ""
@@ -145,7 +169,7 @@ python $SCRIPT_DIR/finetune_gena_lm_phage.py \
     --save_strategy steps \
     --save_steps $SAVE_STEPS \
     --load_best_model_at_end \
-    --metric_for_best_model eval_mcc \
+    --metric_for_best_model "$METRIC_FOR_BEST_MODEL" \
     --early_stopping_patience $EARLY_STOPPING_PATIENCE \
     --save_total_limit $SAVE_TOTAL_LIMIT \
     --bf16 \

@@ -47,7 +47,6 @@ from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
 )
-from safetensors.torch import load_file as load_safetensors
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -614,66 +613,29 @@ def main():
     # Load model and tokenizer
     print(f"\nLoading fine-tuned weights from: {args.model_path}")
 
-    # The base model provides the architecture and tokenizer
-    # Fine-tuning only changes weights, not the tokenizer or model code
-    base_model = "AIRI-Institute/gena-lm-bert-base-t2t"
+    # Fine-tuned checkpoints saved by HF Trainer + tokenizer.save_pretrained()
+    # are self-contained. Loading directly from the checkpoint dir works for
+    # any GENA-LM variant (BERT-base, BigBird, ModernGENA) — HF resolves the
+    # architecture and any custom modeling code from the saved config.json.
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(args.model_path, trust_remote_code=True)
+        print(f"  Loaded tokenizer from checkpoint: {args.model_path}")
+    except (OSError, ValueError):
+        config_path = os.path.join(args.model_path, "config.json")
+        with open(config_path) as f:
+            base_model = json.load(f).get("_name_or_path")
+        if not base_model:
+            raise RuntimeError(
+                f"Tokenizer not in {args.model_path} and config.json has no "
+                "_name_or_path. Re-save the checkpoint with tokenizer included."
+            )
+        print(f"  Tokenizer not in checkpoint; loading from base: {base_model}")
+        tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
 
-    # Always load tokenizer from base model (fine-tuning doesn't change it)
-    print(f"  Loading tokenizer from base model: {base_model}")
-    tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
-
-    # Load model: use base model for architecture/code, checkpoint for weights
-    # Check if checkpoint has the custom model files
-    checkpoint_has_model_code = os.path.exists(os.path.join(args.model_path, "modeling_esm.py"))
-
-    if checkpoint_has_model_code:
-        # Checkpoint has everything, load directly
-        print(f"  Loading model directly from checkpoint")
-        model = AutoModelForSequenceClassification.from_pretrained(
-            args.model_path, trust_remote_code=True
-        )
-    else:
-        # Checkpoint only has weights - load architecture from base, weights from checkpoint
-        print(f"  Loading model architecture from base model: {base_model}")
-        print(f"  Fine-tuned checkpoint: {args.model_path}")
-
-        # NOTE: The following from_pretrained() call will print a warning about:
-        #   - "lm_head.*" weights not being used (expected - base model has LM head, not classifier)
-        #   - "classifier.*" weights being newly initialized (expected - will be overwritten below)
-        # This warning is expected and can be safely ignored.
-        print("  (Note: The following HuggingFace warning about 'newly initialized' weights is expected)")
-
-        # Load the base model with classification head (num_labels=2 for binary classification)
-        model = AutoModelForSequenceClassification.from_pretrained(
-            base_model,
-            trust_remote_code=True,
-            num_labels=2,
-        )
-
-        # Load the fine-tuned weights from checkpoint (overwrites the randomly initialized classifier)
-        checkpoint_path = os.path.join(args.model_path, "model.safetensors")
-        if os.path.exists(checkpoint_path):
-            state_dict = load_safetensors(checkpoint_path)
-            model.load_state_dict(state_dict)
-            # Verify classifier weights were loaded
-            classifier_keys = [k for k in state_dict.keys() if 'classifier' in k]
-            print(f"  Loaded fine-tuned weights from: {checkpoint_path}")
-            print(f"  Classifier head weights loaded: {classifier_keys}")
-        else:
-            # Try pytorch format
-            checkpoint_path = os.path.join(args.model_path, "pytorch_model.bin")
-            if os.path.exists(checkpoint_path):
-                state_dict = torch.load(checkpoint_path, map_location="cpu")
-                model.load_state_dict(state_dict)
-                classifier_keys = [k for k in state_dict.keys() if 'classifier' in k]
-                print(f"  Loaded fine-tuned weights from: {checkpoint_path}")
-                print(f"  Classifier head weights loaded: {classifier_keys}")
-            else:
-                raise FileNotFoundError(
-                    f"No model weights found in {args.model_path}. "
-                    "Expected 'model.safetensors' or 'pytorch_model.bin'"
-                )
-
+    print(f"  Loading model from checkpoint: {args.model_path}")
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.model_path, trust_remote_code=True
+    )
     model = model.to(device)
 
     # Determine mixed precision dtype

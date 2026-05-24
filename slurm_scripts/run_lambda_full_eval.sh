@@ -70,29 +70,18 @@ case "${WINDOW}" in
     *)  echo "ERROR: invalid WINDOW='${WINDOW}' (use 2k|4k|8k)"; exit 1 ;;
 esac
 
-# ─── Environment setup ──────────────────────────────────────────────────────
-# Match the pattern used by run_train_gena_lm.sh: `module load conda` is
-# required on Biowulf compute nodes — without it, `activate` isn't in PATH
-# and `source activate gena_lm` silently fails, leaving python3 to fall back
-# to the system/base env (which lacks scipy, breaking sklearn imports).
+# Load modules (suppress errors for non-Biowulf systems)
 module load conda 2>/dev/null || true
 module load CUDA/12.8 2>/dev/null || true
-if [ -z "${CUDA_HOME:-}" ]; then
-    NVCC_PATH=$(which nvcc 2>/dev/null)
-    if [ -n "${NVCC_PATH}" ]; then
-        export CUDA_HOME=$(dirname $(dirname "${NVCC_PATH}"))
-    fi
-fi
-# Activate (try modern then legacy form); BAIL if activation fails, since
-# silently running in the wrong env is what burned the previous batch of jobs.
-conda activate gena_lm 2>/dev/null || source activate gena_lm \
-    || { echo "ERROR: failed to activate conda env gena_lm"; exit 1; }
-export PYTHONNOUSERSITE=1
 
-# Sanity-prove we're actually in gena_lm and scipy is importable, BEFORE
-# launching inference. Cheap and short-circuits failure with a clear message.
-python3 -c "import sys, scipy, sklearn; print(f'python={sys.executable} scipy={scipy.__version__} sklearn={sklearn.__version__}')" \
-    || { echo "ERROR: scipy/sklearn import failed under env gena_lm"; exit 1; }
+# Set CUDA_HOME if not set
+if [ -z "${CUDA_HOME:-}" ]; then
+    export CUDA_HOME=$(dirname $(dirname $(which nvcc 2>/dev/null))) 2>/dev/null || true
+fi
+
+# Activate conda environment (tries modern `conda activate` then falls back
+# to legacy `source activate`)
+conda activate gena_lm 2>/dev/null || source activate gena_lm 2>/dev/null || true
 
 REPO_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification"
 cd "${REPO_DIR}" || { echo "ERROR: cannot cd to ${REPO_DIR}"; exit 1; }

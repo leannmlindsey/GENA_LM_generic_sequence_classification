@@ -43,15 +43,15 @@ VARIANT="${1:-bigbird}"
 case "${VARIANT}" in
     bigbird)
         MODEL_NAME="gena_lm_bigbird"
-        CHECKPOINT_2K=""
-        CHECKPOINT_4K=""
-        CHECKPOINT_8K=""
+        CHECKPOINT_2K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_42_1e-4_20260524_103321"
+        CHECKPOINT_4K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/4k/gena_lm_lambda_filtered_4k_42_1e-4_20260524_103323"
+        CHECKPOINT_8K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/8k/gena_lm_lambda_filtered_8k_42_1e-4_20260524_103414"
         ;;
     moderngena)
         MODEL_NAME="gena_lm_moderngena"
-        CHECKPOINT_2K=""
-        CHECKPOINT_4K=""
-        CHECKPOINT_8K=""
+        CHECKPOINT_2K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/2k/gena_lm_lambda_filtered_2k_42_3e-5_20260524_103413"
+        CHECKPOINT_4K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/4k/gena_lm_lambda_filtered_4k_42_3e-5_20260524_103414"
+        CHECKPOINT_8K="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/output/filtered/8k/gena_lm_lambda_filtered_8k_42_3e-5_20260524_103500"
         ;;
     *)
         echo "ERROR: invalid VARIANT='${VARIANT}' (use bigbird|moderngena)"

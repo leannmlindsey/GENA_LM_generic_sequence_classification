@@ -5,9 +5,11 @@
 # LAMBDA's 03_build_website_data.py expects.
 #
 # Usage:
-#   bash submit_lambda_full_eval.sh                 # default variant: bigbird
-#   bash submit_lambda_full_eval.sh bigbird
-#   bash submit_lambda_full_eval.sh moderngena
+#   bash submit_lambda_full_eval.sh                       # variant=bigbird, all 3 windows
+#   bash submit_lambda_full_eval.sh bigbird               # bigbird, all 3 windows
+#   bash submit_lambda_full_eval.sh moderngena            # moderngena, all 3 windows
+#   bash submit_lambda_full_eval.sh bigbird "8k"          # only 8k
+#   bash submit_lambda_full_eval.sh moderngena "2k 4k"    # only 2k + 4k
 #
 # Before running, fill in CHECKPOINT_{2K,4K,8K} for the chosen variant in the
 # preset block below. Leave a checkpoint blank ("") to skip that window.
@@ -39,6 +41,7 @@ PRECISION="bf16"        # bf16 | fp16 | fp32
 #####################################################################
 
 VARIANT="${1:-bigbird}"
+WINDOWS_ARG="${2:-2k 4k 8k}"
 
 case "${VARIANT}" in
     bigbird)
@@ -127,9 +130,14 @@ PRECISION="${PRECISION}" \
         "${SBATCH_SCRIPT}"
 }
 
-submit_window "2k" "${CHECKPOINT_2K}" "${MAX_LENGTH_2K}"
-submit_window "4k" "${CHECKPOINT_4K}" "${MAX_LENGTH_4K}"
-submit_window "8k" "${CHECKPOINT_8K}" "${MAX_LENGTH_8K}"
+for window in ${WINDOWS_ARG}; do
+    case "${window}" in
+        2k) submit_window "2k" "${CHECKPOINT_2K}" "${MAX_LENGTH_2K}" ;;
+        4k) submit_window "4k" "${CHECKPOINT_4K}" "${MAX_LENGTH_4K}" ;;
+        8k) submit_window "8k" "${CHECKPOINT_8K}" "${MAX_LENGTH_8K}" ;;
+        *)  echo "[${window}] SKIP — invalid window (use 2k|4k|8k)" ;;
+    esac
+done
 
 echo ""
 echo "Monitor: squeue -u \$USER"

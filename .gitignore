@@ -73,3 +73,7 @@ data/genomes/*
 downstream_tasks/promoter_prediction/*.ipynb
 runs/*
 .vscode/*
+
+# Lab notes (not for distribution)
+lab_notebook.md
+lab_notebook/

@@ -30,8 +30,11 @@ GRID_DATA_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/FINAL_RESULTS/grid_search_
 GROUND_TRUTH="/gpfs/gsfs12/users/Irp-jiang/share/lindseylm/lambda_final/ground_truth.csv"
 OUTPUT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/FINAL_RESULTS/grid_search_results_gena_lm"
 
-# Path to grid_search_clustering.py — adjust if you put FINAL_SCRIPTS elsewhere on Biowulf
-GRID_SEARCH_SCRIPT="/data/lindseylm/GLM_EVALUATIONS/CLAUDE_LAMBDA_VISUALIZE_RESULTS/FINAL_SCRIPTS/grid_search_clustering.py"
+# Path to grid_search_clustering.py — lives in the LAMBDA repo at
+# replication/grid_search_clustering.py (copied there from FINAL_SCRIPTS so
+# the full methodology travels with the paper repo). Update if the LAMBDA
+# repo lives at a different path on Biowulf.
+GRID_SEARCH_SCRIPT="/data/lindseylm/GLM_EVALUATIONS/NAR_GENOMICS_LAMBDA_REPO/LAMBDA/replication/grid_search_clustering.py"
 
 WINDOWS="${1:-2k 4k 8k}"
 

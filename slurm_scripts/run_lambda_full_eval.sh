@@ -166,8 +166,11 @@ run_category () {
 # ─── Run all 3 categories ───────────────────────────────────────────────────
 OVERALL_RC=0
 
+# Binary test lives in the same dir as the training data (the dir training
+# reads from for train/dev/test). On this Biowulf setup that's
+# merged_datasets_filtered/<W>/test.csv — not binary_segments_<W>/.
 run_category "binary" \
-    "${DATASET_ROOT}/binary_segments_${WINDOW}" \
+    "${DATASET_ROOT}/merged_datasets_filtered/${WINDOW}" \
     "test.csv" \
     || OVERALL_RC=1
 

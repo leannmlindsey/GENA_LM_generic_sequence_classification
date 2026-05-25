@@ -23,7 +23,8 @@ echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
 # Load modules
-module load CUDA/12.8
+module load conda 2>/dev/null || true
+module load CUDA/12.8 2>/dev/null || true
 
 # Set CUDA_HOME if not set
 if [ -z "${CUDA_HOME}" ]; then
@@ -33,8 +34,10 @@ if [ -z "${CUDA_HOME}" ]; then
     fi
 fi
 
-# Activate conda environment
-source activate gena_lm
+# Activate conda environment (tries modern `conda activate` then falls back
+# to legacy `source activate`) -- same proven block as run_train_gena_lm.sh
+# and run_lambda_full_eval.sh, which require `module load conda` first.
+conda activate gena_lm 2>/dev/null || source activate gena_lm 2>/dev/null || true
 
 # Ignore user site-packages
 export PYTHONNOUSERSITE=1

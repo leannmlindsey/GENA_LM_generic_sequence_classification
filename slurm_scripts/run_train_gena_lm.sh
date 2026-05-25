@@ -103,7 +103,7 @@ EPOCHS=${EPOCHS:-10}                             # upstream default
 EARLY_STOPPING_PATIENCE=${EARLY_STOPPING_PATIENCE:-7}  # upstream BigBird recipe
 EVAL_STEPS=${EVAL_STEPS:-100}
 SAVE_STEPS=${SAVE_STEPS:-100}
-SAVE_TOTAL_LIMIT=${SAVE_TOTAL_LIMIT:-2}
+SAVE_TOTAL_LIMIT=${SAVE_TOTAL_LIMIT:-1}    # 1 with --save_only_model = ~500MB per finetune
 METRIC_FOR_BEST_MODEL=${METRIC_FOR_BEST_MODEL:-eval_f1}  # upstream BigBird optimize_metric
 
 # Max sequence length in tokens, set per window. GENA-LM uses 32k BPE
@@ -172,6 +172,7 @@ python $SCRIPT_DIR/finetune_gena_lm_phage.py \
     --metric_for_best_model "$METRIC_FOR_BEST_MODEL" \
     --early_stopping_patience $EARLY_STOPPING_PATIENCE \
     --save_total_limit $SAVE_TOTAL_LIMIT \
+    --save_only_model \
     --bf16 \
     --seed $SEED
 

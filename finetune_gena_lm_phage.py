@@ -159,7 +159,13 @@ def parse_args():
     parser.add_argument("--save_strategy", type=str, default="epoch")
     parser.add_argument("--save_steps", type=int, default=500,
                         help="Save checkpoint every N steps (only used if save_strategy='steps')")
-    parser.add_argument("--save_total_limit", type=int, default=2)
+    parser.add_argument("--save_total_limit", type=int, default=1,
+                        help="Keep only the N best checkpoints (default 1 — only the best is needed). "
+                             "Lower = less disk usage; load_best_model_at_end always keeps the best.")
+    parser.add_argument("--save_only_model", action="store_true", default=False,
+                        help="Only save model weights (not optimizer/scheduler/RNG state). "
+                             "Cuts each checkpoint to ~1/3 of full size. Safe for our workflow "
+                             "since we never resume training — only run inference.")
     parser.add_argument("--load_best_model_at_end", action="store_true", default=True)
     parser.add_argument("--metric_for_best_model", type=str, default="eval_f1",
                         help="Default 'eval_f1' matches upstream BigBird promoter recipe "
@@ -440,6 +446,7 @@ def main():
         metric_for_best_model=args.metric_for_best_model,
         greater_is_better=True,
         save_total_limit=args.save_total_limit,
+        save_only_model=args.save_only_model,
         fp16=args.fp16,
         bf16=args.bf16,
         optim=args.optim,

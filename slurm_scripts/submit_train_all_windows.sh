@@ -53,7 +53,7 @@ if [ ! -f "${SBATCH_SCRIPT}" ]; then
     exit 1
 fi
 
-SEED="${1:-42}"
+SEEDS="${1:-42}"
 WINDOWS="${2:-2k 4k 8k}"
 VARIANT="${3:-bigbird}"
 
@@ -94,7 +94,7 @@ echo "GENA-LM fine-tuning — multi-window submit"
 echo "=========================================="
 echo "Variant:                ${VARIANT}"
 echo "Model:                  ${MODEL_NAME}"
-echo "Seed:                   ${SEED}"
+echo "Seeds:                  ${SEEDS}"
 echo "Windows:                ${WINDOWS}"
 echo "Learning rate:          ${LEARNING_RATE}"
 echo "Weight decay:           ${WEIGHT_DECAY}"
@@ -103,23 +103,34 @@ echo "Best-model metric:      ${METRIC_FOR_BEST_MODEL}"
 echo "Script:                 ${SBATCH_SCRIPT}"
 echo ""
 
-for window in ${WINDOWS}; do
-    case "${window}" in
-        2k|4k|8k) ;;
-        *) echo "[${window}] SKIP — invalid window (use 2k|4k|8k)"; continue ;;
+n_submitted=0
+for seed in ${SEEDS}; do
+    case "${seed}" in
+        ''|*[!0-9]*) echo "[seed=${seed}] SKIP — not an integer"; continue ;;
     esac
 
-    echo "[${window}] sbatch run_train_gena_lm.sh ${SEED} ${window} (variant=${VARIANT})"
-    sbatch \
-        --job-name="gena_lm_${VARIANT_TAG}_${window}_s${SEED}" \
-        --export=ALL,\
+    for window in ${WINDOWS}; do
+        case "${window}" in
+            2k|4k|8k) ;;
+            *) echo "[seed=${seed} ${window}] SKIP — invalid window (use 2k|4k|8k)"; continue ;;
+        esac
+
+        echo "[seed=${seed} ${window}] sbatch run_train_gena_lm.sh ${seed} ${window} (variant=${VARIANT})"
+        sbatch \
+            --job-name="gena_lm_${VARIANT_TAG}_${window}_s${seed}" \
+            --export=ALL,\
 MODEL_NAME="${MODEL_NAME}",\
 LEARNING_RATE="${LEARNING_RATE}",\
 WEIGHT_DECAY="${WEIGHT_DECAY}",\
 LR_SCHEDULER_TYPE="${LR_SCHEDULER_TYPE}",\
 METRIC_FOR_BEST_MODEL="${METRIC_FOR_BEST_MODEL}" \
-        "${SBATCH_SCRIPT}" "${SEED}" "${window}"
+            "${SBATCH_SCRIPT}" "${seed}" "${window}"
+        n_submitted=$((n_submitted + 1))
+    done
 done
+
+echo ""
+echo "Submitted ${n_submitted} jobs total."
 
 echo ""
 echo "Monitor:    squeue -u \$USER"

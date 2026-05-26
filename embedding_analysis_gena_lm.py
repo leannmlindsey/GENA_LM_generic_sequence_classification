@@ -172,7 +172,7 @@ def create_random_model(model_path: str, device: torch.device, seed: int = 42):
     Returns:
         Randomly initialized model
     """
-    from transformers import EsmModel, EsmConfig
+    from transformers import AutoModel
 
     print("\n" + "=" * 60)
     print("Creating Randomly Initialized Baseline Model")
@@ -186,9 +186,10 @@ def create_random_model(model_path: str, device: torch.device, seed: int = 42):
     print(f"Loading config from: {model_path}")
     config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
 
-    # Create model with random weights (not from pretrained)
-    # GENA-LM models use ESM architecture
-    model = EsmModel(config)
+    # Create model with random weights (not from pretrained), architecture-agnostic
+    # so it works for BigBird (gena-lm-bigbird) and ModernBERT (moderngena) alike --
+    # mirrors the AutoModel.from_pretrained used for the pretrained model.
+    model = AutoModel.from_config(config, trust_remote_code=True)
 
     model = model.to(device)
     model.eval()

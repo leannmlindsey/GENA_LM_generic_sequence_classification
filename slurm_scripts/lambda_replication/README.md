@@ -56,7 +56,7 @@ $OUTPUT_DIR/logs/                              SLURM stdout/stderr (shared)
 ```
 
 `$OUTPUT_DIR` =
-`/data/lindseylm/GLM_EVALUATIONS/NAR_GENOMICS_LAMBDA_REPO/GENA-LM/GENA_LM_generic_sequence_classification/outputs`
+`/data/lindseylm/GLM_EVALUATIONS/NAR_GENOMICS_LAMBDA_REPO/GENA_LM_generic_sequence_classification/outputs`
 
 ## Variants
 

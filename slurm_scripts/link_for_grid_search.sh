@@ -21,8 +21,7 @@ set -e
 RESULTS_ROOT="/data/lindseylm/GLM_EVALUATIONS/MODELS/FINAL_RESULTS"
 GRID_DATA_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/FINAL_RESULTS/grid_search_input"
 
-# Model names to link — these are the MODEL_NAME values used in
-# submit_lambda_full_eval.sh's variant presets. Each must already have
+# Model names to link — one per variant. Each must already have genome-wide
 # inference output at ${RESULTS_ROOT}/${MODEL_NAME}/genome_wide/<W>/.
 MODEL_NAMES=("gena_lm_bigbird" "gena_lm_moderngena")
 WINDOWS=("2k" "4k" "8k")

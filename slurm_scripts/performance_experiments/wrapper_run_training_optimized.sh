@@ -55,7 +55,7 @@ EVAL_STEPS="500"
 #####################################################################
 
 # Get script directory
-SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts"
+SCRIPT_DIR="/data/lindseylm/GLM_EVALUATIONS/MODELS/GENA-LM/GENA_LM_generic_sequence_classification/slurm_scripts/performance_experiments"
 TRAIN_SCRIPT="${SCRIPT_DIR}/run_optimized_train.sh"
 
 # Parse command line arguments

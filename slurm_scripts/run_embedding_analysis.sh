@@ -35,8 +35,8 @@ if [ -z "${CUDA_HOME}" ]; then
 fi
 
 # Activate conda environment (tries modern `conda activate` then falls back
-# to legacy `source activate`) -- same proven block as run_train_gena_lm.sh
-# and run_lambda_full_eval.sh, which require `module load conda` first.
+# to legacy `source activate`) -- same proven block as run_train_gena_lm.sh,
+# which requires `module load conda` first.
 conda activate gena_lm 2>/dev/null || source activate gena_lm 2>/dev/null || true
 
 # Ignore user site-packages

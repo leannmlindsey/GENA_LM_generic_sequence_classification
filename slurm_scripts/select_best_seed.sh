@@ -5,7 +5,7 @@
 #
 # Prints:
 #   1. A summary table — best seed, eval_f1, eval_mcc, full path for each cell
-#   2. The 6 CHECKPOINT_*K= lines ready to paste into submit_lambda_full_eval.sh
+#   2. The 6 CHECKPOINT_*K= lines (best-seed checkpoint path per variant × window)
 #
 # Identifies variant by LR in the directory name (matches the pattern
 # run_train_gena_lm.sh produces: _<seed>_<lr>_<timestamp>):
@@ -87,7 +87,7 @@ best = {key: max(cell_rows, key=lambda x: x["eval_f1"]) for key, cell_rows in by
 
 print()
 print("=" * 70)
-print("PASTE THESE INTO submit_lambda_full_eval.sh's case block:")
+print("BEST-SEED CHECKPOINTS (per variant × window):")
 print("=" * 70)
 
 for variant in ("bigbird", "moderngena"):

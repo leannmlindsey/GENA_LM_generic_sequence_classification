@@ -8,7 +8,7 @@
 # Usage:
 #   bash summarize_results.sh
 #
-# Output structure expected (matches submit_lambda_full_eval.sh layout):
+# Output structure expected (the legacy LAMBDA full-eval layout):
 #   ${RESULTS_ROOT}/<variant>/binary/<window>/test_metrics.json
 #   ${RESULTS_ROOT}/<variant>/error_bias/<window>/*_metrics.json
 #   ${RESULTS_ROOT}/<variant>/genome_wide/<window>/summary.json (+ per-CSV metrics)

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Per-variant, pick the finetune SEED with the highest test-set eval_f1 (the
-metric GENA-LM trains/selects with — see select_best_seed.sh). Writes
-<output_dir>/winners.json for the inference stage.
+Per-variant, pick the finetune SEED with the highest test-set eval_mcc (the
+metric the LAMBDA paper reports). Writes <output_dir>/winners.json for the
+inference stage.
 
-This mirrors the existing select_best_seed.sh logic (rank by eval_f1, eval_mcc
-shown for info) but emits machine-readable JSON keyed by variant, matching the
+This ranks by eval_mcc (eval_f1 also recorded for info) and emits
+machine-readable JSON keyed by variant, matching the
 ProkBERT winners.json contract consumed by print_winner_exports.py:
 
     {
@@ -47,16 +47,16 @@ def collect_seed_candidates(variant_dir):
             continue
         with open(results_path) as f:
             metrics = json.load(f)
-        f1 = metrics.get("eval_f1")
-        if f1 is None:
-            print(f"  WARN: no eval_f1 in {results_path}, skipping", file=sys.stderr)
+        mcc = metrics.get("eval_mcc")
+        if mcc is None:
+            print(f"  WARN: no eval_mcc in {results_path}, skipping", file=sys.stderr)
             continue
         seed = int(os.path.basename(seed_dir).split("-")[1])
         out.append({
             "type": "finetune",
             "seed": seed,
-            "eval_f1": float(f1),
-            "eval_mcc": float(metrics.get("eval_mcc", 0.0)),
+            "eval_mcc": float(mcc),
+            "eval_f1": float(metrics.get("eval_f1", 0.0)),
             # finetune_gena_lm_phage.py saves the best checkpoint into the seed
             # dir itself (load_best_model_at_end=True), so the dir IS the model.
             "path": os.path.abspath(seed_dir),
@@ -92,17 +92,17 @@ def main():
             skipped.append(variant)
             continue
 
-        for c in sorted(candidates, key=lambda c: c["eval_f1"], reverse=True):
-            print(f"  eval_f1={c['eval_f1']:.4f}  eval_mcc={c['eval_mcc']:.4f}  seed-{c['seed']}")
+        for c in sorted(candidates, key=lambda c: c["eval_mcc"], reverse=True):
+            print(f"  eval_mcc={c['eval_mcc']:.4f}  eval_f1={c['eval_f1']:.4f}  seed-{c['seed']}")
 
-        winner = max(candidates, key=lambda c: c["eval_f1"])
+        winner = max(candidates, key=lambda c: c["eval_mcc"])
         winner["base_model"] = VARIANT_TO_HF.get(variant, variant)
         winner["all_candidates"] = [
             {k: v for k, v in c.items() if k in ("seed", "eval_f1", "eval_mcc")}
             for c in candidates
         ]
         winners[variant] = winner
-        print(f"  WINNER: seed-{winner['seed']} (eval_f1={winner['eval_f1']:.4f})")
+        print(f"  WINNER: seed-{winner['seed']} (eval_mcc={winner['eval_mcc']:.4f})")
 
     out_path = os.path.join(args.output_dir, "winners.json")
     with open(out_path, "w") as f:

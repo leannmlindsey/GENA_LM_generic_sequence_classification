@@ -1,6 +1,8 @@
 # GENA-LM Generic Sequence Classification
 
-> **Note:** This is a fork of [AIRI-Institute/GENA_LM](https://github.com/AIRI-Institute/GENA_LM) extended with scripts for **generic CSV-based binary classification**, suitable for benchmarking GENA-LM / modernGENA on the [LAMBDA prophage-detection benchmark](https://github.com/leannmlindsey/LAMBDA) or any other binary DNA sequence classification task. The original modernGENA documentation lives in [`UPSTREAM_README.md`](./UPSTREAM_README.md); the previous-generation GENA-LM docs are in [`README_previous_generation.md`](./README_previous_generation.md).
+> **Fork of [AIRI-Institute/GENA_LM](https://github.com/AIRI-Institute/GENA_LM)** — adds generic CSV-based binary classification scripts, used to benchmark GENA-LM on the [LAMBDA prophage-detection benchmark](https://github.com/leannmlindsey/LAMBDA).
+>
+> Original docs preserved verbatim in [`UPSTREAM_README.md`](./UPSTREAM_README.md).
 
 ---
 
@@ -8,279 +10,228 @@
 
 The fine-tune script in this fork (`finetune_gena_lm_phage.py`) is a thin
 wrapper around `transformers.Trainer` with `AutoModelForSequenceClassification`
-— **the same machinery** the upstream modernGENA reference path uses
-(`examples/modernGENA/sequence_classification/train.py`). Hyperparameter
-defaults are taken from upstream's reference config
-([`examples/modernGENA/sequence_classification/configs/config.yaml`](./examples/modernGENA/sequence_classification/configs/config.yaml)):
+— the HF Trainer path the upstream README sanctions as an alternative to the
+custom `lm_experiments_tools.Trainer` + Horovod loop used by the per-task
+scripts under [`downstream_tasks/`](./downstream_tasks/). Defaults follow the
+upstream GENA-LM BigBird recipe; the modernGENA variant overrides
+`learning_rate=3e-5`, `weight_decay=1e-3`,
+`lr_scheduler_type=linear` to match the modernGENA reference config. Every CLI
+flag can be overridden:
 
-| Parameter | Default | Source |
-|-----------|---------|--------|
-| `learning_rate` | 3e-5 | upstream |
-| `weight_decay` | 1e-3 | upstream |
-| `warmup_ratio` | 0.06 | upstream |
-| `lr_scheduler_type` | linear | upstream |
-| `per_device_train_batch_size` | 8 | upstream |
-| `gradient_accumulation_steps` | 4 | upstream (effective batch 32) |
+| Parameter | Default (this fork) | Source / rationale |
+|-----------|---------------------|--------------------|
+| `learning_rate` | 1e-4 | upstream — GENA-LM BigBird recipe |
+| `weight_decay` | 0.0 | upstream — BigBird recipe (no L2) |
+| `warmup_ratio` | 0.06 | upstream — modernGENA reference default |
+| `lr_scheduler_type` | constant_with_warmup | upstream — BigBird recipe |
 | `num_train_epochs` | 10 | upstream |
-| `early_stopping_patience` | 30 evaluations | upstream |
+| `per_device_train_batch_size` | 8 | this fork |
+| `per_device_eval_batch_size` | 16 | this fork |
+| `gradient_accumulation_steps` | 4 | this fork — effective batch 32 |
+| `max_length` | 1024 | this fork — matches the 4k window; 512 for 2k (BERT), 2048 for 8k |
 | `metric_for_best_model` | `eval_mcc` | **LAMBDA-specific** (the LAMBDA paper reports MCC) |
+| `load_best_model_at_end` | True | this fork |
+| `early_stopping_patience` | 7 evaluations | upstream — BigBird recipe |
+| `save_total_limit` | 1 | this fork |
+| `bf16` / `fp16` | opt-in flag | this fork — A100 efficiency |
+| `seed` | 42 | HF convention |
 
-The two intentional deviations are (1) the best-model selection metric (MCC
-rather than upstream's PR-AUC, because the LAMBDA paper uses MCC) and (2)
-mixed precision (`--bf16` on for A100 efficiency; upstream defaults to fp32).
+`metric_for_best_model` is `eval_mcc` for LAMBDA runs (the LAMBDA paper reports
+MCC); `f1` / `mcc` / `pr_auc` / `accuracy` are all computed each eval and only
+this flag selects the best checkpoint. The LAMBDA replication picks the best
+seed per variant by `eval_mcc`.
 
 The upstream alternative training paths — the per-task scripts under
-[`downstream_tasks/`](./downstream_tasks/) (which use a custom
-`lm_experiments_tools.Trainer` with Horovod for distributed training and
-optional RMT memory tokens for long sequences) — are preserved unchanged.
-Use them directly if you want their custom training loop instead of the
-HF `Trainer` path used here.
+[`downstream_tasks/`](./downstream_tasks/) (custom Trainer with Horovod for
+distributed training and optional RMT memory tokens for long sequences) — are
+preserved unchanged. Use them directly for their original training loop.
 
 ## What this fork adds
 
 | File | Purpose |
 |------|---------|
-| `finetune_gena_lm_phage.py` | Fine-tune any GENA-LM / modernGENA checkpoint on a binary CSV dataset (`train.csv`/`dev.csv`/`test.csv` with `sequence,label` columns). |
-| `inference_gena_lm.py` | Single-CSV inference — predictions + probabilities + (optional) metrics. |
-| `inference_gena_lm_dir.py` | Directory-mode inference — loads the model once and processes every CSV in a directory. |
-| `embedding_analysis_gena_lm.py` | Extract embeddings; train a linear probe and 3-layer NN; compute silhouette score, PCA, and (optionally) a random-init baseline. |
-| `summarize_inference_results.py` | Aggregate per-CSV `_metrics.json` files into a single metrics summary table. |
-| `setup_lambda.sh` + `requirements_lambda.txt` | Self-contained conda env for the LAMBDA-evaluation scripts (does not touch the upstream `requirements.txt`). |
-| `slurm_scripts/` | SLURM submission scripts for Biowulf / SLURM clusters (training, inference, embedding analysis). |
+| `finetune_gena_lm_phage.py` | Fine-tune any GENA-LM / modernGENA checkpoint on a binary CSV dataset (`train.csv` / `dev.csv` (or `val.csv`) / `test.csv` with `sequence,label` columns). |
+| `inference_gena_lm.py` | Single-CSV inference — predictions, probabilities, optional metrics. |
+| `inference_gena_lm_dir.py` | Directory-mode inference — load the model once, predict over every CSV in a directory. |
+| `embedding_analysis_gena_lm.py` | Extract pretrained embeddings; train a linear probe + 3-layer NN; compute silhouette, PCA, and (optionally) a random-init baseline + embedding power. |
+| `slurm_scripts/lambda_replication/lambda_replication.conf` | Single config for the LAMBDA replication pipeline (paths, variants, seeds, hyperparameters). |
+| `slurm_scripts/lambda_replication/run_lambda_training.sh` | Submit all finetune (variant × seed) + embedding jobs per window. |
+| `slurm_scripts/lambda_replication/run_lambda_inference.sh` | Pick the best seed per variant, then submit all diagnostic + genome-wide inference. |
+| `slurm_scripts/lambda_replication/lambda_*_job.sh` | SLURM workers: finetune, embedding, single-CSV inference, genome-wide inference. |
+| `slurm_scripts/lambda_replication/select_best_seed.py` | Pick the best finetune seed per variant by test-set `eval_mcc`; write `winners.json`. |
+| `slurm_scripts/lambda_replication/print_winner_exports.py` | Emit the winning checkpoint path for the inference jobs. |
+| `slurm_scripts/lambda_replication/prefetch_models.sh` | Pre-warm the offline HF cache on a login node (compute nodes have no internet). |
+| `summarize_inference_results.py` | Aggregate per-CSV `_metrics.json` files into one metrics summary table. |
+| `setup_lambda.sh` + `requirements_lambda.txt` | Self-contained `gena_lm` conda env for the LAMBDA scripts, built on upstream's `environment.yml`. |
+| `slurm_scripts/wrapper_run_*.sh` | Generic SLURM submission wrappers (finetune, embedding analysis, batch inference). |
 
-## Supported models
+## Installation
 
-This fork works with any HuggingFace `AutoModelForSequenceClassification`-compatible checkpoint, including:
-
-| Model | Hugging Face | Context |
-|-------|--------------|---------|
-| GENA-LM BERT base | [`AIRI-Institute/gena-lm-bert-base-t2t`](https://huggingface.co/AIRI-Institute/gena-lm-bert-base-t2t) | 512 tokens (~3 kb) |
-| GENA-LM BERT large | [`AIRI-Institute/gena-lm-bert-large-t2t`](https://huggingface.co/AIRI-Institute/gena-lm-bert-large-t2t) | 512 tokens (~3 kb) |
-| GENA-LM BigBird base | [`AIRI-Institute/gena-lm-bigbird-base-t2t`](https://huggingface.co/AIRI-Institute/gena-lm-bigbird-base-t2t) | 4096 tokens (~24 kb) |
-| GENA-LM BigBird sparse base | [`AIRI-Institute/gena-lm-bigbird-base-sparse-t2t`](https://huggingface.co/AIRI-Institute/gena-lm-bigbird-base-sparse-t2t) | 4096 tokens (~24 kb) |
-| modernGENA base | [`AIRI-Institute/moderngena-base`](https://huggingface.co/AIRI-Institute/moderngena-base) | Long context (see upstream) |
-| modernGENA large | [`AIRI-Institute/moderngena-large`](https://huggingface.co/AIRI-Institute/moderngena-large) | Long context (see upstream) |
-
-**Note on context length:** all models in this family use the same 32k BPE tokenizer (~6 bp/token). The default `--max_length 512` works for 2 kb sequences with the BERT variants. For 4 kb / 8 kb sequences, use a BigBird variant and `--max_length 1024` or `2048`.
-
----
-
-## Quick Start
-
-### 1. Setup environment
+The fork ships a self-contained env builder; it is the recommended path:
 
 ```bash
-git clone https://github.com/leannmlindsey/GENA_LM_generic_sequence_classification
+git clone git@github.com:leannmlindsey/GENA_LM_generic_sequence_classification.git
 cd GENA_LM_generic_sequence_classification
 
+# builds the `gena_lm` conda env (the SLURM scripts assume this name)
 bash setup_lambda.sh
-# or manually:
-conda create -n gena_lm python=3.10 -y
+```
+
+Manual fallback (same env, built by hand):
+
+```bash
+conda env create -n gena_lm -f examples/modernGENA/environment.yml
 conda activate gena_lm
 pip install -r requirements_lambda.txt
 ```
 
-### 2. Prepare your data
-
-A directory containing three CSV files:
-
-```
-my_dataset/
-├── train.csv
-├── dev.csv     # or val.csv
-└── test.csv
-```
-
-Each CSV must have:
-
-```csv
-sequence,label
-ACGTACGT...,0
-TGCATGCA...,1
-```
-
-- `sequence`: DNA (A/C/G/T/N)
-- `label`: integer (0 or 1 for binary classification)
-
-For the LAMBDA benchmark, these CSVs are the `binary_segments_2k/`, `binary_segments_4k/`, and `binary_segments_8k/` subdirectories of the [Zenodo deposit](https://doi.org/10.5281/zenodo.19236553).
-
----
-
-## Fine-tuning
+`environment.yml` pins a CUDA-enabled PyTorch matching upstream's tested stack.
+For a different CUDA build, install torch first:
 
 ```bash
-python finetune_gena_lm_phage.py \
-    --model_name AIRI-Institute/gena-lm-bert-base-t2t \
-    --dataset_dir /path/to/LAMBDA/binary_segments_2k \
-    --output_dir ./output/gena_lm/2k \
-    --max_length 512 \
-    --per_device_train_batch_size 16 \
-    --learning_rate 3e-5 \
-    --num_train_epochs 3 \
-    --bf16 \
-    --early_stopping_patience 3
+pip install torch --index-url https://download.pytorch.org/whl/cu128
 ```
 
-### Long sequences (4 kb / 8 kb)
+## Using the fork
 
-Use a BigBird variant and gradient checkpointing:
+| If you want to... | Go to |
+|---|---|
+| Use GENA-LM on **your own** binary classification CSV (finetune, evaluate embeddings, predict) | [Generic classification](#generic-classification) |
+| **Replicate** the LAMBDA phage paper — train all variants on the LAMBDA dataset, pick the best seed per variant, run all diagnostic + genome-wide inference | [LAMBDA replication](#lambda-replication) |
 
-```bash
-python finetune_gena_lm_phage.py \
-    --model_name AIRI-Institute/gena-lm-bigbird-base-t2t \
-    --dataset_dir /path/to/LAMBDA/binary_segments_8k \
-    --output_dir ./output/gena_lm_bigbird/8k \
-    --max_length 2048 \
-    --bf16 \
-    --gradient_checkpointing \
-    --per_device_train_batch_size 4 \
-    --gradient_accumulation_steps 4
-```
+### Generic classification
 
-### SLURM (Biowulf)
+**Inputs:** a directory containing `train.csv`, `dev.csv` (or `val.csv`),
+`test.csv`. Each CSV must have a `sequence` column and a `label` column (0/1).
+
+Three sub-steps, each a separate SLURM submission:
 
 ```bash
-# Edit configuration block at the top of slurm_scripts/run_train_gena_lm.sh
-sbatch slurm_scripts/run_train_gena_lm.sh
-```
+# 1. Embedding analysis — linear probe + 3-layer NN on pretrained embeddings
+#    (edit the config block at the top, then run)
+bash slurm_scripts/wrapper_run_embedding_analysis.sh
 
-After training, `test_results.json` is saved with `eval_accuracy`, `eval_precision`, `eval_recall`, `eval_f1`, `eval_mcc`, `eval_sensitivity`, `eval_specificity`, `eval_auc`.
+# 2. Fine-tuning — full encoder fine-tune
+#    (edit the config block at the top of run_train_gena_lm.sh, then submit)
+sbatch slurm_scripts/run_train_gena_lm.sh <SEED> <WINDOW>
+#    multi-seed / multi-window / per-variant:
+bash slurm_scripts/submit_train_all_windows.sh "<SEEDS>" "<WINDOWS>" <variant>
 
----
-
-## Inference
-
-### Single CSV
-
-```bash
-python inference_gena_lm.py \
-    --input_csv /path/to/test.csv \
-    --model_path ./output/gena_lm/2k \
-    --output_csv predictions.csv \
-    --threshold 0.5 \
-    --bf16 \
-    --save_metrics
-```
-
-Outputs `predictions.csv` with `prob_0`, `prob_1`, `pred_label` columns appended. If `--save_metrics` is set and the input has a `label` column, a `_metrics.json` is written alongside.
-
-### Directory mode (recommended for batch)
-
-```bash
-python inference_gena_lm_dir.py \
-    --input_dir /path/to/csvs \
-    --output_dir /path/to/predictions \
-    --model_path ./output/gena_lm/2k \
-    --bf16 \
-    --save_metrics
-```
-
-Loads the model once and processes every CSV in `input_dir` — much faster than launching one job per file.
-
-### SLURM batch inference
-
-```bash
-# Edit slurm_scripts/wrapper_run_batch_inference.sh, then:
+# 3. Inference — local fine-tuned checkpoint, one job per CSV in INPUT_LIST
 bash slurm_scripts/wrapper_run_batch_inference.sh
 ```
 
-This submits one SLURM job per input CSV path listed in `INPUT_LIST` (a text file with one path per line).
+`INPUT_LIST` in the batch-inference wrapper is a text file with one CSV path
+per line; one SLURM job per input.
 
----
+For the full flag list for any script, run `python <script>.py --help`.
 
-## Embedding analysis
+### LAMBDA replication
 
-Extract embeddings, train a linear probe + 3-layer NN, compute silhouette and PCA, and (optionally) compare against a randomly initialized baseline:
+A two-step workflow over a single config file. The pipeline loops over the
+LAMBDA_v1 windows (2k / 4k / 8k by default) and for each window submits:
+finetune × variants (bigbird, moderngena) × N seeds, embedding analysis ×
+variants (on the pretrained base model), automatic best-seed selection (by
+test-set `eval_mcc`), inference on the matching-window diagnostics (test, fpr,
+gc_control, fnr), and genome-wide inference.
 
-```bash
-python embedding_analysis_gena_lm.py \
-    --csv_dir /path/to/csv/data \
-    --model_path AIRI-Institute/gena-lm-bert-base-t2t \
-    --output_dir ./results/embedding_analysis \
-    --pooling mean \
-    --include_random_baseline
-```
-
-Outputs (in `--output_dir`):
-
-| File | Description |
-|------|-------------|
-| `embeddings_pretrained.npz` | Cached embeddings for train/val/test sets |
-| `pca_visualization_pretrained.png` | PCA plot showing class separation |
-| `test_predictions_pretrained.csv` | Per-sequence predictions with probabilities |
-| `three_layer_nn_pretrained.pt` | Trained 3-layer NN classifier |
-| `embedding_analysis_results.json` | Linear probe + NN metrics, silhouette score, PCA variance, and (with `--include_random_baseline`) embedding-power deltas |
-
-The same files prefixed `_random` are written when `--include_random_baseline` is enabled, plus an `embedding_power_*` metric set for each (= pretrained metric − random metric).
-
----
-
-## Aggregating across multiple runs
-
-After running directory-mode inference (or a batch of single-file jobs), summarize:
+Biowulf compute nodes have no internet, so prefetch the base models into the
+offline HF cache from a login node first:
 
 ```bash
-python summarize_inference_results.py \
-    --results_dir /path/to/predictions \
-    --output_csv summary.csv
+bash slurm_scripts/lambda_replication/prefetch_models.sh
 ```
 
-Produces one row per `_metrics.json` with all the standard binary-classification metrics.
+```bash
+# 1. Edit the config — LAMBDA_BASE and OUTPUT_DIR are required; VARIANTS, SEEDS,
+#    FPR_<W>, GC_<W>, FNR_<W>, GENOME_WIDE_<W> are optional.
+$EDITOR slurm_scripts/lambda_replication/lambda_replication.conf
 
----
+# 2. Launch all training (finetune × N seeds + embedding × variants, per window,
+#    in parallel — no dependency chaining)
+bash slurm_scripts/lambda_replication/run_lambda_training.sh
 
-## Reproducibility note
+# 3. Wait — squeue -u $USER
 
-- All scripts default to `seed=42` (`--seed` to change).
-- The 3-layer NN in `embedding_analysis_gena_lm.py` uses a fixed seed for weight init and is deterministic given the same embeddings.
-- Mixed-precision (`--bf16` / `--fp16`) introduces small numerical differences compared to fp32; metric magnitudes shift by < 0.001 in our testing but the relative ordering is stable.
+# 4. Launch all inference (per window: pick the best seed by test-MCC; run
+#    inference on test, fpr, gc_control, fnr; run genome-wide inference)
+bash slurm_scripts/lambda_replication/run_lambda_inference.sh
+```
 
----
+**Expected LAMBDA_v1 layout** (`LAMBDA_BASE`):
+
+```
+LAMBDA_BASE/
+└── train_val_test/<W>/{train,val,test}.csv     finetune + embedding + test diagnostic
+```
+
+The fpr / gc_control / fnr diagnostics and genome-wide inputs are provided per
+window via the optional `FPR_<W>` / `GC_<W>` / `FNR_<W>` / `GENOME_WIDE_<W>`
+config variables (`GENOME_WIDE_<W>` is a directory of segment CSVs; its outputs
+are renamed `genome_wide_<asm>_*_predictions.csv`). Any unset diagnostic is
+skipped with a warning.
+
+**Output layout:**
+
+```
+<OUTPUT_DIR>/
+├── <W>/                                one subdir per window
+│   ├── finetune/<variant>/seed-<N>/    test_results.json + checkpoint
+│   ├── embedding/<variant>/            embedding_analysis_results.json, .npz, classifiers
+│   ├── winners.json                    best seed per variant (by eval_mcc)
+│   └── inference/<variant>/            {test,fpr,gc_control,fnr}_predictions.csv (+ _metrics.json)
+│                                       + genome_wide_<asm>_*_predictions.csv
+└── logs/                               SLURM stdout/stderr per job (shared)
+```
+
+## Available models
+
+All variants share the same 32k BPE tokenizer (~6 bp/token).
+
+| Model | Architecture | Context | HuggingFace |
+| --- | --- | --- | --- |
+| GENA-LM BERT base | BERT | 512 tokens (~3 kb) | [AIRI-Institute/gena-lm-bert-base-t2t](https://huggingface.co/AIRI-Institute/gena-lm-bert-base-t2t) |
+| GENA-LM BERT large | BERT-large | 512 tokens (~3 kb) | [AIRI-Institute/gena-lm-bert-large-t2t](https://huggingface.co/AIRI-Institute/gena-lm-bert-large-t2t) |
+| GENA-LM BigBird base | BigBird | 4096 tokens (~24 kb) | [AIRI-Institute/gena-lm-bigbird-base-t2t](https://huggingface.co/AIRI-Institute/gena-lm-bigbird-base-t2t) |
+| GENA-LM BigBird sparse base | BigBird (sparse; needs DeepSpeed) | 4096 tokens (~24 kb) | [AIRI-Institute/gena-lm-bigbird-base-sparse-t2t](https://huggingface.co/AIRI-Institute/gena-lm-bigbird-base-sparse-t2t) |
+| modernGENA base | ModernBERT | long context (see upstream) | [AIRI-Institute/moderngena-base](https://huggingface.co/AIRI-Institute/moderngena-base) |
+| modernGENA large | ModernBERT-large | long context (see upstream) | [AIRI-Institute/moderngena-large](https://huggingface.co/AIRI-Institute/moderngena-large) |
+
+The LAMBDA replication wrappers use three variant presets: `bigbird`
+(`gena-lm-bigbird-base-t2t`), `moderngena` (`moderngena-base`), and `bertbase`
+(`gena-lm-bert-base-t2t`).
 
 ## Citation
 
-If you use this fork, please cite the LAMBDA benchmark and the relevant GENA-LM / modernGENA paper for the model you ran.
+If you use GENA-LM itself, cite the original paper:
 
-**LAMBDA** (bioRxiv preprint — [PMC13041943](https://pmc.ncbi.nlm.nih.gov/articles/PMC13041943/)):
 ```bibtex
-@article{lindsey2026lambda,
-  title   = {LAMBDA: A Prophage Detection Benchmark for Genomic Language Models},
-  author  = {Lindsey, LeAnn M. and Pershing, Nicole L. and Dufault-Thompson, Keith and
-             Gwak, Ho-jin and Habib, Anisa and Schindler, Aaron and Rakheja, Arjun and
-             Round, June and Stephens, W. Zac and Blaschke, Anne J. and Sundar, Hari and
-             Jiang, Xiaofang},
-  journal = {bioRxiv},
+@article{GENA_LM,
+    author  = {Fishman, Veniamin and Kuratov, Yuri and Shmelev, Aleksei and Petrov, Maxim and Penzar, Dmitry and Shepelin, Denis and Chekanov, Nikolay and Kardymon, Olga and Burtsev, Mikhail},
+    title   = {GENA-LM: a family of open-source foundational DNA language models for long sequences},
+    journal = {Nucleic Acids Research},
+    volume  = {53},
+    number  = {2},
+    pages   = {gkae1310},
+    year    = {2025},
+    issn    = {0305-1048},
+    doi     = {10.1093/nar/gkae1310},
+    url     = {https://doi.org/10.1093/nar/gkae1310}
+}
+```
+
+For modernGENA variants, also cite [Back to BERT in 2026: ModernGENA as a
+Strong, Efficient Baseline for DNA Foundation Models](https://www.biorxiv.org/content/10.64898/2026.04.21.719816v1).
+
+If you use this fork as part of the LAMBDA prophage-detection benchmark, also
+cite the LAMBDA paper:
+
+```bibtex
+@article{LAMBDA2026,
+  author  = {Lindsey, LeAnn M. and Pershing, Nicole L. and Dufault-Thompson, Keith and Gwak, Ho-jin and Habib, Anisa and Schindler, Aaron and Rakheja, Arjun and Round, June and Stephens, W. Zac and Blaschke, Anne J. and Sundar, Hari and Jiang, Xiaofang},
+  title   = {{LAMBDA}: A Prophage Detection Benchmark for Genomic Language Models},
   year    = {2026},
-  url     = {https://pmc.ncbi.nlm.nih.gov/articles/PMC13041943/}
+  doi     = {10.64898/2026.03.26.714501},
+  url     = {https://doi.org/10.64898/2026.03.26.714501}
 }
 ```
-
-**GENA-LM** — original paper:
-```bibtex
-@article{fishman2025genalm,
-  title   = {GENA-LM: a family of open-source foundational DNA language models for long sequences},
-  author  = {Fishman, Veniamin and Kuratov, Yuri and Shmelev, Aleksei and Petrov, Maxim and
-             Penzar, Dmitry and Shepelin, Denis and Chekanov, Nikolay and Kardymon, Olga and
-             Burtsev, Mikhail},
-  journal = {Nucleic Acids Research},
-  year    = {2025}
-}
-```
-
-**modernGENA** (bioRxiv preprint):
-```bibtex
-@article{aspidova2026moderngena,
-  title   = {Back to BERT in 2026: ModernGENA as a Strong, Efficient Baseline for DNA Foundation Models},
-  author  = {Aspidova, Alena and Kuratov, Yuri and Shadskiy, Artem and Burtsev, Mikhail and
-             Fishman, Veniamin},
-  journal = {bioRxiv},
-  year    = {2026},
-  url     = {https://www.biorxiv.org/content/10.64898/2026.04.21.719816v1}
-}
-```
-
----
-
-## License
-
-This fork preserves the upstream license — see [`LICENSE`](./LICENSE).

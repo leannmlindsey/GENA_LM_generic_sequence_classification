@@ -19,7 +19,7 @@ from the previous LAMBDA runs is the **input dataset**, which now reads
 | `lambda_embedding_job.sh`        | worker: Surface D embedding (pretrained base) |
 | `lambda_inference_job.sh`        | worker: Surface A/B single-CSV inference |
 | `lambda_genome_inference_job.sh` | worker: Surface C genome-wide dir inference |
-| `select_best_seed.py`            | writes `winners.json` (best seed per variant by `eval_f1`) |
+| `select_best_seed.py`            | writes `winners.json` (best seed per variant by `eval_mcc`) |
 | `print_winner_exports.py`        | reads `winners.json[variant]` for the inference jobs |
 
 ## Run
@@ -46,7 +46,7 @@ bash slurm_scripts/lambda_replication/run_lambda_inference.sh
 ```
 $OUTPUT_DIR/<W>/finetune/<variant>/seed-<N>/   test_results.json + checkpoint
 $OUTPUT_DIR/<W>/embedding/<variant>/           embedding_analysis_results.json + .npz + .pkl
-$OUTPUT_DIR/<W>/winners.json                   best seed per variant (eval_f1)
+$OUTPUT_DIR/<W>/winners.json                   best seed per variant (eval_mcc)
 $OUTPUT_DIR/<W>/inference/<variant>/           test_predictions.csv
                                                fpr_predictions.csv
                                                gc_control_predictions.csv

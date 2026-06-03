@@ -117,7 +117,7 @@ python finetune_gena_lm_phage.py \
     --save_strategy steps \
     --save_steps ${SAVE_STEPS} \
     --load_best_model_at_end \
-    --metric_for_best_model eval_f1 \
+    --metric_for_best_model eval_mcc \
     --early_stopping_patience ${EARLY_STOPPING_PATIENCE} \
     --save_total_limit ${SAVE_TOTAL_LIMIT} \
     --save_only_model \

@@ -4,7 +4,7 @@
 # submit all inference jobs.
 #
 # For each window in WINDOWS:
-#   1. select_best_seed.py picks the per-variant winner by test-set eval_f1 and
+#   1. select_best_seed.py picks the per-variant winner by test-set eval_mcc and
 #      writes <OUTPUT_DIR>/<W>/winners.json.
 #   2. Submit one inference job per (variant, diagnostic). Diagnostics:
 #        Surface A  test       train_val_test/<W>/test.csv          (always)
@@ -79,7 +79,7 @@ for W in ${WINDOWS}; do
     REPL_W_DIR="${OUTPUT_DIR}/${W}"
 
     # 1) select winners (login node; reads test_results.json only)
-    echo "  selecting best seed per variant (by eval_f1)..."
+    echo "  selecting best seed per variant (by eval_mcc)..."
     python3 "${SCRIPT_DIR}/select_best_seed.py" \
         --output_dir "${REPL_W_DIR}" \
         --variants ${VARIANTS} \

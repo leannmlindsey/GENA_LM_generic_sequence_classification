@@ -53,7 +53,9 @@ for W in ${WINDOWS}; do
     fi
 done
 
-INF_FLAGS=(--partition=gpu --gres=gpu:a100:1 --mem="${INF_MEM}" --time="${INF_TIME}" --cpus-per-task=8)
+# Delta-AI (GH200): one GH200 per node on the ghx4 partition. Biowulf equivalent
+# was `--partition=gpu --gres=gpu:a100:1`.
+INF_FLAGS=(--account=bfzj-dtai-gh --partition=ghx4 --gpus-per-node=1 --mem="${INF_MEM}" --time="${INF_TIME}" --cpus-per-task=8)
 
 echo "============================================================"
 echo "GENA-LM LAMBDA_v1 replication — Stage 2: winners + inference"
@@ -152,6 +154,32 @@ for W in ${WINDOWS}; do
                 --export="ALL,${COMMON_ENV},REPL_OUTPUT_DIR=${REPL_W_DIR},WINDOW=${W},VARIANT=${V},GENOME_WIDE_DIR=${GW_DIR},INF_BATCH_SIZE=${INF_BATCH_SIZE},THRESHOLD=${THRESHOLD},PRECISION=${PRECISION}" \
                 "${SCRIPT_DIR}/lambda_genome_inference_job.sh"
             NUM_JOBS=$((NUM_JOBS + 1))
+        fi
+
+        # PHROG (Surface B, 2k only): inference on the phrog-annotated phage set
+        # for the central per-category PHROG table. Reuses lambda_inference_job.sh
+        # (which passes phrog_category/phrog_db_category/label through via
+        # df.copy()). Output is model+variant-prefixed so the two GENA-LM variants
+        # don't collide: GENA_LM_<variant>_phage_annotated_segments_2k_predictions.csv.
+        if [ "${W}" = "2k" ]; then
+            PHROG_PATH="${PHROG_2k:-}"
+            if [ -z "${PHROG_PATH}" ]; then
+                echo "    note: PHROG_2k unset — skipping PHROG for ${V}"
+            elif [ ! -f "${PHROG_PATH}" ]; then
+                echo "    WARNING: PHROG_2k=${PHROG_PATH} not found — skipping PHROG for ${V}"
+            else
+                JOB="inf_2k_${V}_phrog"
+                PHROG_OUT="GENA_LM_${V}_phage_annotated_segments_2k_predictions.csv"
+                echo "    submitting ${JOB} (-> ${PHROG_OUT})..."
+                sbatch \
+                    --job-name="${JOB}" \
+                    --output="${LOGDIR}/${JOB}_%j.out" \
+                    --error="${LOGDIR}/${JOB}_%j.err" \
+                    "${INF_FLAGS[@]}" \
+                    --export="ALL,${COMMON_ENV},REPL_OUTPUT_DIR=${REPL_W_DIR},WINDOW=${W},VARIANT=${V},INPUT_CSV=${PHROG_PATH},OUTPUT_FILENAME=${PHROG_OUT},INF_BATCH_SIZE=${INF_BATCH_SIZE},THRESHOLD=${THRESHOLD},PRECISION=${PRECISION}" \
+                    "${SCRIPT_DIR}/lambda_inference_job.sh"
+                NUM_JOBS=$((NUM_JOBS + 1))
+            fi
         fi
     done
 

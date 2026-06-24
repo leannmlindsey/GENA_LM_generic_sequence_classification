@@ -17,15 +17,17 @@ set -euo pipefail
 echo "=== genome-wide inference ${VARIANT} ${WINDOW}  dir=${GENOME_WIDE_DIR} ==="
 echo "Started at: $(date)  Node: $(hostname)  Job: ${SLURM_JOB_ID:-N/A}"
 
-module load conda 2>/dev/null || true
-module load CUDA/12.8 2>/dev/null || true
-conda activate gena_lm 2>/dev/null || source activate gena_lm 2>/dev/null || true
+# Delta-AI: initialise conda from the user's miniconda base, then activate the
+# env. (Biowulf used `module load conda; module load CUDA/12.8`.) Recent torch
+# ships aarch64 CUDA wheels that bundle the runtime, so no CUDA module is needed.
+source /u/llindsey1/miniconda3/etc/profile.d/conda.sh
+conda activate gena_lm
 export PYTHONNOUSERSITE=1
 export TOKENIZERS_PARALLELISM=false
 
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
-export HF_HOME="${HF_HOME:-/data/lindseylm/.cache/huggingface}"
+export HF_HOME="${HF_HOME:-/work/hdd/bfzj/llindsey1/hf_cache}"
 
 if [ -z "${CUDA_HOME:-}" ]; then
     export CUDA_HOME=$(dirname $(dirname $(which nvcc 2>/dev/null))) 2>/dev/null || true

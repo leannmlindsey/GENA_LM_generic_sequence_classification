@@ -29,8 +29,12 @@ echo "  Env name:        ${ENV_NAME}"
 echo "  Upstream env:    ${UPSTREAM_ENV_YML}"
 echo "============================================================"
 
-# Adjust the module loads to match your cluster — these are the Biowulf names.
-module load CUDA/12.8
+# Delta-AI (GH200): initialise conda from the user's miniconda base. No module
+# system is needed — recent torch ships aarch64 CUDA wheels that bundle the CUDA
+# runtime, so there is no separate `module load CUDA` step on Delta.
+#   (Biowulf equivalent was: module load CUDA/12.8)
+CONDA_BASE="${CONDA_BASE:-/u/llindsey1/miniconda3}"
+source "${CONDA_BASE}/etc/profile.d/conda.sh"
 
 # Step 1: create env from upstream's environment.yml (overrides the `name:`
 # field in the yaml via -n). This gives us upstream's tested torch /
@@ -39,7 +43,7 @@ echo
 echo "[1/2] Creating env from upstream's environment.yml..."
 conda env create -n "${ENV_NAME}" -f "${UPSTREAM_ENV_YML}"
 
-source activate "${ENV_NAME}"
+conda activate "${ENV_NAME}"
 
 # Step 2: install the extras the LAMBDA evaluation scripts need that upstream's
 # env doesn't include (their CTCF example uses a custom PyTorch Dataset, no
@@ -56,7 +60,7 @@ pip install \
 echo
 echo "============================================================"
 echo "Environment '${ENV_NAME}' is ready."
-echo "Activate with:  source activate ${ENV_NAME}"
+echo "Activate with:  source ${CONDA_BASE}/etc/profile.d/conda.sh && conda activate ${ENV_NAME}"
 echo "============================================================"
 echo
 echo "Quick test:"

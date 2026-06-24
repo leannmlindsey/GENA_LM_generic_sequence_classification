@@ -22,7 +22,7 @@ CONFIG="${SCRIPT_DIR}/lambda_replication.conf"
 [ -f "${CONFIG}" ] && source "${CONFIG}"
 
 # HF cache root — MUST match what the job scripts use (jobs default to this too).
-export HF_HOME="${HF_HOME:-/data/lindseylm/.cache/huggingface}"
+export HF_HOME="${HF_HOME:-/work/hdd/bfzj/llindsey1/hf_cache}"
 # Allow internet for the prefetch, overriding any offline flags left in the shell.
 export HF_HUB_OFFLINE=0
 export TRANSFORMERS_OFFLINE=0
@@ -39,12 +39,14 @@ echo "  host:    $(hostname)   <-- must be a LOGIN node (has internet)"
 echo "============================================================"
 
 case "$(hostname)" in
-    cn*) echo "WARNING: this looks like a COMPUTE node (cn*) — it has no internet."
-         echo "         Run this on a login node (e.g. biowulf) instead." ;;
+    *gh*|*compute*) echo "NOTE: if this is a COMPUTE node it may lack internet."
+         echo "      Run this on a Delta LOGIN node instead." ;;
 esac
 
-module load conda 2>/dev/null || true
-conda activate gena_lm 2>/dev/null || source activate gena_lm 2>/dev/null || true
+# Delta-AI: initialise conda from the user's miniconda base, then activate the
+# env. (Biowulf used `module load conda`.)
+source /u/llindsey1/miniconda3/etc/profile.d/conda.sh
+conda activate gena_lm
 
 # Unquoted heredoc so ${MODELS} is injected by bash; the Python below has no
 # other shell metacharacters.

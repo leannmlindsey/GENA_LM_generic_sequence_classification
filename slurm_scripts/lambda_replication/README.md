@@ -1,6 +1,6 @@
 # GENA-LM LAMBDA_v1 replication
 
-Two-command Biowulf pipeline that mirrors the ProkBERT `lambda_replication`
+Two-command SLURM pipeline (set up for Delta-AI / GH200) that mirrors the ProkBERT `lambda_replication`
 layout for GENA-LM. It reuses the **unchanged** GENA-LM Python entry points
 (`finetune_gena_lm_phage.py`, `embedding_analysis_gena_lm.py`,
 `inference_gena_lm.py`, `inference_gena_lm_dir.py`); the only substantive change
@@ -21,6 +21,7 @@ from the previous LAMBDA runs is the **input dataset**, which now reads
 | `lambda_genome_inference_job.sh` | worker: Surface C genome-wide dir inference |
 | `select_best_seed.py`            | writes `winners.json` (best seed per variant by `eval_mcc`) |
 | `print_winner_exports.py`        | reads `winners.json[variant]` for the inference jobs |
+| `check_random_baseline.sh`       | verify the random-embedding baseline ran for every (window×variant) cell |
 
 ## Run
 
@@ -37,6 +38,11 @@ bash slurm_scripts/lambda_replication/run_lambda_training.sh
 # 3. wait for all jobs
 squeue -u $USER
 
+# 3b. verify the random-embedding baseline ran for every (window×variant) cell
+#     (don't trust INCLUDE_RANDOM_BASELINE=true alone — the random pass can
+#     silently fail). Prints random vs pretrained MCC per cell + N/total.
+bash slurm_scripts/lambda_replication/check_random_baseline.sh
+
 # 4. Stage 2 — winners + inference
 bash slurm_scripts/lambda_replication/run_lambda_inference.sh
 ```
@@ -52,11 +58,12 @@ $OUTPUT_DIR/<W>/inference/<variant>/           test_predictions.csv
                                                gc_control_predictions.csv
                                                fnr_predictions.csv
                                                genome_wide_<asm>_*_predictions.csv
+                                               GENA_LM_<variant>_phage_annotated_segments_2k_predictions.csv  (PHROG; 2k only)
 $OUTPUT_DIR/logs/                              SLURM stdout/stderr (shared)
 ```
 
-`$OUTPUT_DIR` =
-`/data/lindseylm/GLM_EVALUATIONS/NAR_GENOMICS_LAMBDA_REPO/GENA_LM_generic_sequence_classification/outputs`
+`$OUTPUT_DIR` (Delta-AI) =
+`/work/hdd/bfzj/llindsey1/LAMBDA_REPLICATION/GENA_LM/outputs`
 
 ## Variants
 

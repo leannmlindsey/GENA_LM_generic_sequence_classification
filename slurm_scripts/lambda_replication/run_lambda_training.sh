@@ -105,8 +105,10 @@ echo "  EMB: pooling=${POOLING} nn_epochs=${NN_EPOCHS} nn_lr=${NN_LR} random_bas
 echo "============================================================"
 
 # ─── common sbatch flags ─────────────────────────────────────────────────────
-FT_FLAGS=(--partition=gpu --gres=gpu:a100:1 --mem="${FT_MEM}" --time="${FT_TIME}" --cpus-per-task=8)
-EMB_FLAGS=(--partition=gpu --gres=gpu:a100:1 --mem="${EMB_MEM}" --time="${EMB_TIME}" --cpus-per-task=8)
+# Delta-AI (GH200): one GH200 per node on the ghx4 partition. Biowulf equivalent
+# was `--partition=gpu --gres=gpu:a100:1`.
+FT_FLAGS=(--account=bfzj-dtai-gh --partition=ghx4 --gpus-per-node=1 --mem="${FT_MEM}" --time="${FT_TIME}" --cpus-per-task=8)
+EMB_FLAGS=(--account=bfzj-dtai-gh --partition=ghx4 --gpus-per-node=1 --mem="${EMB_MEM}" --time="${EMB_TIME}" --cpus-per-task=8)
 
 # Shared env passed to every job. REPO_ROOT is propagated explicitly because
 # SLURM stages each job script to /var/spool/slurm/... where BASH_SOURCE[0]

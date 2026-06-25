@@ -74,6 +74,10 @@ downstream_tasks/promoter_prediction/*.ipynb
 runs/*
 .vscode/*
 
+# LAMBDA replication outputs (checkpoints, embeddings, predictions) — large,
+# generated on the cluster; OUTPUT_DIR defaults to this repo's outputs/.
+outputs/
+
 # Lab notes (not for distribution)
 lab_notebook.md
 lab_notebook/

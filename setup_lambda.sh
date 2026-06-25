@@ -40,16 +40,34 @@ source "${CONDA_BASE}/etc/profile.d/conda.sh"
 # field in the yaml via -n). This gives us upstream's tested torch /
 # transformers / sklearn pins exactly.
 echo
-echo "[1/2] Creating env from upstream's environment.yml..."
+echo "[1/3] Creating env from upstream's environment.yml..."
 conda env create -n "${ENV_NAME}" -f "${UPSTREAM_ENV_YML}"
 
 conda activate "${ENV_NAME}"
 
-# Step 2: install the extras the LAMBDA evaluation scripts need that upstream's
+# Step 2: pin the aarch64 CUDA torch build. On Delta GH200 (aarch64) the plain
+# pip pin in environment.yml resolves to a CPU-only wheel (torch X.Y.Z+cpu), so
+# torch.cuda.is_available() is False even on a healthy GPU node. Reinstall the
+# matching CUDA wheel from the PyTorch index. torch 2.5.1 / cu124 matches the
+# other working Delta GH200 envs (generanno, etc.); override via env vars for a
+# different cluster/stack.
+echo
+echo "[2/3] Installing aarch64 CUDA torch wheel..."
+TORCH_VERSION="${TORCH_VERSION:-2.5.1}"
+TORCH_CUDA_INDEX="${TORCH_CUDA_INDEX:-https://download.pytorch.org/whl/cu124}"
+pip install "torch==${TORCH_VERSION}" --index-url "${TORCH_CUDA_INDEX}"
+# The CUDA index is a FULL index replacement and does not host torch's
+# pure-Python deps (typing_extensions, sympy, ...). If the env-create step
+# didn't leave them in place, `import torch` fails with ModuleNotFoundError;
+# restore them from PyPI (default index) so the env is usable.
+python -c "import torch" 2>/dev/null || \
+    pip install typing_extensions sympy networkx jinja2 fsspec filelock mpmath
+
+# Step 3: install the extras the LAMBDA evaluation scripts need that upstream's
 # env doesn't include (their CTCF example uses a custom PyTorch Dataset, no
 # plotting; ours uses HF datasets, matplotlib, scipy KDE).
 echo
-echo "[2/2] Installing LAMBDA-evaluation extras on top..."
+echo "[3/3] Installing LAMBDA-evaluation extras on top..."
 pip install \
     'datasets>=2.14,<4.0' \
     'matplotlib>=3.7,<4.0' \

@@ -77,6 +77,13 @@ cd GENA_LM_generic_sequence_classification
 bash setup_lambda.sh
 ```
 
+`setup_lambda.sh` creates the env from `examples/modernGENA/environment.yml`
+(key pins: **python 3.10–3.12, torch 2.4–2.7, transformers 4.45+, accelerate
+1.x, scikit-learn 1.3+, numpy/pandas**) and then pip-installs the LAMBDA extras
+from `requirements_lambda.txt` (`datasets`, `matplotlib`, `scipy`, `tqdm`,
+`einops`). It initialises conda from `$CONDA_BASE/etc/profile.d/conda.sh`
+(`CONDA_BASE` defaults to `/u/llindsey1/miniconda3`; override for your cluster).
+
 Manual fallback (same env, built by hand):
 
 ```bash
@@ -91,6 +98,30 @@ For a different CUDA build, install torch first:
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu128
 ```
+
+### Reproducing on Delta-AI (GH200 / aarch64)
+
+The LAMBDA replication scripts are configured for **Delta-AI** (NCSA, GH200
+nodes). Build and verify the env on a GPU node before running the pipeline:
+
+```bash
+# 1. build the env (login node is fine)
+bash setup_lambda.sh
+
+# 2. verify torch + CUDA on a GH200 node (do NOT skip this)
+srun --account=bfzj-dtai-gh --partition=ghx4 --gpus-per-node=1 --pty bash
+source /u/llindsey1/miniconda3/etc/profile.d/conda.sh && conda activate gena_lm
+python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
+# expect: a 2.4–2.6 build and True
+```
+
+ARM note: on aarch64 (GH200) the plain pip pin in `environment.yml` resolves to
+a **CPU-only** torch wheel (`torch X.Y.Z+cpu` → `torch.cuda.is_available()` is
+False even on a healthy GPU). `setup_lambda.sh` therefore force-reinstalls the
+matching aarch64 CUDA wheel (**torch 2.5.1 / cu124**, matching the other working
+Delta GH200 envs); override with `TORCH_VERSION` / `TORCH_CUDA_INDEX`. There is
+**no `module load CUDA`** step (the wheel bundles the CUDA runtime), and none of
+these scripts need flash-attn or Transformer-Engine.
 
 ## Using the fork
 
@@ -135,12 +166,27 @@ variants (on the pretrained base model), automatic best-seed selection (by
 test-set `eval_mcc`), inference on the matching-window diagnostics (test, fpr,
 gc_control, fnr), and genome-wide inference.
 
-Biowulf compute nodes have no internet, so prefetch the base models into the
-offline HF cache from a login node first:
+Compute nodes may have no internet, so prefetch the base models into the
+offline HF cache from a login node first (jobs run with `HF_HUB_OFFLINE=1`):
 
 ```bash
 bash slurm_scripts/lambda_replication/prefetch_models.sh
 ```
+
+**Delta-AI config values** (already set in `lambda_replication.conf`):
+
+| variable | Delta value |
+|---|---|
+| `LAMBDA_BASE` | `/work/hdd/bfzj/llindsey1/LAMBDA_REPLICATION/LAMBDA_v1` |
+| `OUTPUT_DIR`  | `/work/hdd/bfzj/llindsey1/LAMBDA_REPLICATION/GENA_LM_generic_sequence_classification/outputs` |
+| `HF_HOME`     | `/work/hdd/bfzj/llindsey1/hf_cache` |
+| SLURM (run scripts) | `--account=bfzj-dtai-gh --partition=ghx4 --gpus-per-node=1` |
+| `INCLUDE_RANDOM_BASELINE` | `true` — produces the LP-random / NN-random columns + embedding power the LAMBDA paper needs |
+
+The per-window FNR diagnostics use the **fixed-window** phage segment files —
+`fnr_test/<W>/phage_segments_{2k_1k,4k_2k,8k_4k}.csv` (note `FNR_2k` is
+`phage_segments_2k_1k.csv`, **not** the PHROG-annotated
+`phage_annotated_segments_2k.csv`).
 
 ```bash
 # 1. Edit the config — LAMBDA_BASE and OUTPUT_DIR are required; VARIANTS, SEEDS,
@@ -154,7 +200,8 @@ bash slurm_scripts/lambda_replication/run_lambda_training.sh
 # 3. Wait — squeue -u $USER
 
 # 4. Launch all inference (per window: pick the best seed by test-MCC; run
-#    inference on test, fpr, gc_control, fnr; run genome-wide inference)
+#    inference on test, fpr, gc_control, fnr, genome-wide; and — at 2k — PHROG
+#    on the annotated phage set, one output per variant)
 bash slurm_scripts/lambda_replication/run_lambda_inference.sh
 ```
 
@@ -171,6 +218,14 @@ config variables (`GENOME_WIDE_<W>` is a directory of segment CSVs; its outputs
 are renamed `genome_wide_<asm>_*_predictions.csv`). Any unset diagnostic is
 skipped with a warning.
 
+`PHROG_2k` (2k only) points at the phrog-annotated phage set; inference runs it
+per variant and writes
+`GENA_LM_<variant>_phage_annotated_segments_2k_predictions.csv` (carrying the
+`phrog_category` / `phrog_db_category` columns through) for the central PHROG
+table. Note the central table reads the un-suffixed
+`GENA_LM_phage_annotated_segments_2k_predictions.csv`, so at harvest time pick
+the variant you want and copy/symlink it to that canonical name.
+
 **Output layout:**
 
 ```
@@ -181,6 +236,7 @@ skipped with a warning.
 │   ├── winners.json                    best seed per variant (by eval_mcc)
 │   └── inference/<variant>/            {test,fpr,gc_control,fnr}_predictions.csv (+ _metrics.json)
 │                                       + genome_wide_<asm>_*_predictions.csv
+│                                       + GENA_LM_<variant>_phage_annotated_segments_2k_predictions.csv (PHROG; 2k only)
 └── logs/                               SLURM stdout/stderr per job (shared)
 ```
 

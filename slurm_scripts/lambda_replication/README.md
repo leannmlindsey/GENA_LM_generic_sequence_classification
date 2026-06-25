@@ -63,7 +63,7 @@ $OUTPUT_DIR/logs/                              SLURM stdout/stderr (shared)
 ```
 
 `$OUTPUT_DIR` (Delta-AI) =
-`/work/hdd/bfzj/llindsey1/LAMBDA_REPLICATION/GENA_LM/outputs`
+`/work/hdd/bfzj/llindsey1/LAMBDA_REPLICATION/GENA_LM_generic_sequence_classification/outputs`
 
 ## Variants
 

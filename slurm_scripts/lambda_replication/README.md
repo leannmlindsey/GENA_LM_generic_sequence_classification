@@ -21,6 +21,8 @@ from the previous LAMBDA runs is the **input dataset**, which now reads
 | `lambda_genome_inference_job.sh` | worker: Surface C genome-wide dir inference |
 | `select_best_seed.py`            | writes `winners.json` (best seed per variant by `eval_mcc`) |
 | `print_winner_exports.py`        | reads `winners.json[variant]` for the inference jobs |
+| `check_training.sh`              | verify every (window×variant) finetune cell has all SEEDS (per-seed + mean MCC) and the embedding artifacts |
+| `check_inference.sh`             | verify every expected Stage-2 output exists (test/fpr/gc/fnr/genome/PHROG), with each metric's MCC |
 | `check_random_baseline.sh`       | verify the random-embedding baseline ran for every (window×variant) cell |
 
 ## Run
@@ -38,6 +40,10 @@ bash slurm_scripts/lambda_replication/run_lambda_training.sh
 # 3. wait for all jobs
 squeue -u $USER
 
+# 3a. verify training completed — all SEEDS per (window×variant), with per-seed
+#     and mean MCC, plus the embedding artifacts. Exits non-zero if incomplete.
+bash slurm_scripts/lambda_replication/check_training.sh
+
 # 3b. verify the random-embedding baseline ran for every (window×variant) cell
 #     (don't trust INCLUDE_RANDOM_BASELINE=true alone — the random pass can
 #     silently fail). Prints random vs pretrained MCC per cell + N/total.
@@ -45,6 +51,10 @@ bash slurm_scripts/lambda_replication/check_random_baseline.sh
 
 # 4. Stage 2 — winners + inference
 bash slurm_scripts/lambda_replication/run_lambda_inference.sh
+
+# 4a. verify inference produced every expected output (test/fpr/gc/fnr/genome/
+#     PHROG) per variant, with each metric's MCC. Exits non-zero if incomplete.
+bash slurm_scripts/lambda_replication/check_inference.sh
 ```
 
 ## Output layout (per window `<W>` ∈ {2k,4k,8k})

@@ -104,6 +104,14 @@ pip install torch --index-url https://download.pytorch.org/whl/cu128
 The LAMBDA replication scripts are configured for **Delta-AI** (NCSA, GH200
 nodes). Build and verify the env on a GPU node before running the pipeline:
 
+`setup_lambda.sh` builds the env under **`/work`**
+(`/work/hdd/bfzj/llindsey1/conda/envs/gena_lm`) and points conda's package cache
++ pip's cache there too — Delta home (`/u/llindsey1`) is too small for a
+multi-GB CUDA torch env, and a full home quota makes pip silently fall back to
+`~/.local` (which the SLURM jobs ignore via `PYTHONNOUSERSITE=1`). It prepends
+that dir to `envs_dirs`, so `conda activate gena_lm` still works by name.
+Override with `CONDA_ENVS_DIR` / `CONDA_PKGS_DIR` / `PIP_CACHE_DIR`.
+
 ```bash
 # 1. build the env (login node is fine)
 bash setup_lambda.sh
@@ -117,11 +125,13 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available())"
 
 ARM note: on aarch64 (GH200) the plain pip pin in `environment.yml` resolves to
 a **CPU-only** torch wheel (`torch X.Y.Z+cpu` → `torch.cuda.is_available()` is
-False even on a healthy GPU). `setup_lambda.sh` therefore force-reinstalls the
-matching aarch64 CUDA wheel (**torch 2.5.1 / cu124**, matching the other working
-Delta GH200 envs); override with `TORCH_VERSION` / `TORCH_CUDA_INDEX`. There is
-**no `module load CUDA`** step (the wheel bundles the CUDA runtime), and none of
-these scripts need flash-attn or Transformer-Engine.
+False even on a healthy GPU). `setup_lambda.sh` therefore reinstalls the
+matching aarch64 CUDA wheel (**torch 2.6.0 / cu124**, cu126 fallback); override
+with `TORCH_VERSION` / `TORCH_CUDA_INDEX`. torch **2.6.0 is the floor**:
+transformers ≥4.50 refuses to `torch.load()` the GENA-LM BigBird `.bin`
+checkpoint unless torch ≥ 2.6 (CVE-2025-32434). There is **no `module load
+CUDA`** step (the wheel bundles the CUDA runtime), and none of these scripts
+need flash-attn or Transformer-Engine.
 
 ## Using the fork
 

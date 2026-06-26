@@ -36,14 +36,33 @@ echo "============================================================"
 CONDA_BASE="${CONDA_BASE:-/u/llindsey1/miniconda3}"
 source "${CONDA_BASE}/etc/profile.d/conda.sh"
 
+# Delta-AI: home (/u/llindsey1) has a tight quota — a multi-GB CUDA torch env
+# blows it (pip then falls back to ~/.local, which jobs ignore via
+# PYTHONNOUSERSITE=1). So build the env, conda's package cache, and pip's cache
+# under /work (where the other model envs live). Prepending envs_dirs keeps
+# `conda activate gena_lm` working by NAME in the SLURM job scripts. Override
+# CONDA_ENVS_DIR / CONDA_PKGS_DIR / PIP_CACHE_DIR for another cluster, or set
+# CONDA_ENVS_DIR="" to keep the env in the conda base (home) default.
+CONDA_ENVS_DIR="${CONDA_ENVS_DIR:-/work/hdd/bfzj/llindsey1/conda/envs}"
+CONDA_PKGS_DIR="${CONDA_PKGS_DIR:-/work/hdd/bfzj/llindsey1/conda/pkgs}"
+if [ -n "${CONDA_ENVS_DIR}" ]; then
+    mkdir -p "${CONDA_ENVS_DIR}" "${CONDA_PKGS_DIR}"
+    conda config --prepend envs_dirs "${CONDA_ENVS_DIR}"
+    conda config --prepend pkgs_dirs "${CONDA_PKGS_DIR}"
+    export PIP_CACHE_DIR="${PIP_CACHE_DIR:-/work/hdd/bfzj/llindsey1/.cache/pip}"
+    echo "  Env location:    ${CONDA_ENVS_DIR}/${ENV_NAME}  (off home quota)"
+fi
+
 # Step 1: create env from upstream's environment.yml (overrides the `name:`
-# field in the yaml via -n). This gives us upstream's tested torch /
-# transformers / sklearn pins exactly.
+# field in the yaml via -n). With CONDA_ENVS_DIR prepended above, the named env
+# lands under /work; otherwise it goes in the conda base. This gives us
+# upstream's tested torch / transformers / sklearn pins exactly.
 echo
 echo "[1/3] Creating env from upstream's environment.yml..."
 conda env create -n "${ENV_NAME}" -f "${UPSTREAM_ENV_YML}"
 
 conda activate "${ENV_NAME}"
+echo "  python: $(which python)"   # sanity: should be under ${CONDA_ENVS_DIR}
 
 # Step 2: pin the aarch64 CUDA torch build. On Delta GH200 (aarch64) the plain
 # pip pin in environment.yml resolves to a CPU-only wheel (torch X.Y.Z+cpu), so
@@ -53,9 +72,16 @@ conda activate "${ENV_NAME}"
 # different cluster/stack.
 echo
 echo "[2/3] Installing aarch64 CUDA torch wheel..."
-TORCH_VERSION="${TORCH_VERSION:-2.5.1}"
+# torch 2.6.0 is the FLOOR here: transformers >=4.50 refuses to torch.load() a
+# .bin checkpoint (GENA-LM BigBird ships pytorch_model.bin, not safetensors)
+# unless torch >= 2.6 (CVE-2025-32434). 2.6.0 is what environment.yml already
+# resolves to — we only need the CUDA build instead of the +cpu one. cu124
+# matches the other working Delta GH200 envs; cu126 is the fallback if the
+# aarch64 cu124 wheel for this version isn't published.
+TORCH_VERSION="${TORCH_VERSION:-2.6.0}"
 TORCH_CUDA_INDEX="${TORCH_CUDA_INDEX:-https://download.pytorch.org/whl/cu124}"
-pip install "torch==${TORCH_VERSION}" --index-url "${TORCH_CUDA_INDEX}"
+pip install "torch==${TORCH_VERSION}" --index-url "${TORCH_CUDA_INDEX}" || \
+    pip install "torch==${TORCH_VERSION}" --index-url "https://download.pytorch.org/whl/cu126"
 # The CUDA index is a FULL index replacement and does not host torch's
 # pure-Python deps (typing_extensions, sympy, ...). If the env-create step
 # didn't leave them in place, `import torch` fails with ModuleNotFoundError;

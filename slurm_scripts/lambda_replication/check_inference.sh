@@ -5,13 +5,19 @@
 # For each window it checks winners.json, then for each variant with a winner
 # checks the prediction CSVs under inference/<variant>/, reporting the MCC from
 # each *_metrics.json where present:
-#   - test        test_predictions.csv            (always)
-#   - fpr         fpr_predictions.csv             (if FPR_<W> set)
-#   - gc_control  gc_control_predictions.csv      (if GC_<W> set)
-#   - fnr         fnr_predictions.csv             (if FNR_<W> set)
+#   - test        test_predictions.csv            (always)            metric: MCC
+#   - fpr         fpr_predictions.csv             (if FPR_<W> set)    metric: false-positive rate
+#   - gc_control  gc_control_predictions.csv      (if GC_<W> set)     metric: MCC
+#   - fnr         fnr_predictions.csv             (if FNR_<W> set)    metric: false-negative rate
 #   - genome      genome_wide_*_predictions.csv   (if GENOME_WIDE_<W> set; counts files)
 #   - phrog       GENA_LM_<variant>_phage_annotated_segments_2k_predictions.csv
-#                                                 (2k only, if PHROG_2k set)
+#                                                 (2k only, if PHROG_2k set)  metric: recall
+#
+# Note on metrics: fpr (bacteria-only) and fnr/phrog (phage-only) are SINGLE-CLASS
+# test sets, so MCC is undefined there (sklearn returns 0.0) — it's meaningless,
+# not a failure. This checker prints the metric each test actually measures:
+# false-positive rate for fpr, false-negative rate for fnr, recall for phrog, and
+# MCC only for the two-class sets (test, gc_control).
 #
 # Which diagnostics are "expected" is derived the same way run_lambda_inference.sh
 # decides what to submit — from the FPR_/GC_/FNR_/GENOME_WIDE_/PHROG_ conf vars —
@@ -60,11 +66,30 @@ varis = os.environ["VARIANTS"].split()
 def isset(name):
     return bool(os.environ.get(name, "").strip())
 
-def mcc_of(path):
+def load_metrics(path):
     try:
-        return json.load(open(path)).get("mcc")
+        return json.load(open(path))
     except Exception:
         return None
+
+def diag_metric(name, d):
+    """(label, value) — the meaningful metric for this diagnostic. fpr is
+    all-negatives and fnr/phrog all-positives, so MCC is undefined there; report
+    the rate each test is named for instead. test/gc_control are two-class -> MCC."""
+    if d is None:
+        return ("", None)
+    def rate(num, a, b):
+        n, x, y = d.get(num), d.get(a), d.get(b)
+        if None in (n, x, y) or (x + y) == 0:
+            return None
+        return n / (x + y)
+    if name == "fpr":
+        return ("fpr", rate("false_positives", "false_positives", "true_negatives"))
+    if name == "fnr":
+        return ("fnr", rate("false_negatives", "false_negatives", "true_positives"))
+    if name == "phrog":
+        return ("recall", d.get("recall"))
+    return ("mcc", d.get("mcc"))   # test, gc_control (two-class)
 
 expected = missing = 0
 
@@ -100,8 +125,8 @@ for w in wins:
             csv = os.path.join(idir, f"{name}_predictions.csv")
             mj  = os.path.join(idir, f"{name}_predictions_metrics.json")
             if os.path.isfile(csv):
-                m = mcc_of(mj)
-                mstr = f"mcc={m:.4f}" if isinstance(m, (int, float)) else "(no metrics)"
+                label, val = diag_metric(name, load_metrics(mj))
+                mstr = f"{label}={val:.4f}" if isinstance(val, (int, float)) else "(no metrics)"
                 print(f"  [OK]   {tag:16} {name:11} {mstr}")
             else:
                 print(f"  [MISS] {tag:16} {name:11} {os.path.basename(csv)} not found")
@@ -120,8 +145,8 @@ for w in wins:
             expected += 1
             phrog = os.path.join(idir, f"GENA_LM_{v}_phage_annotated_segments_2k_predictions.csv")
             if os.path.isfile(phrog):
-                m = mcc_of(phrog.replace(".csv", "_metrics.json"))
-                mstr = f"mcc={m:.4f}" if isinstance(m, (int, float)) else ""
+                label, val = diag_metric("phrog", load_metrics(phrog.replace(".csv", "_metrics.json")))
+                mstr = f"{label}={val:.4f}" if isinstance(val, (int, float)) else ""
                 print(f"  [OK]   {tag:16} {'phrog':11} {os.path.basename(phrog)} {mstr}")
             else:
                 print(f"  [MISS] {tag:16} {'phrog':11} {os.path.basename(phrog)} not found")

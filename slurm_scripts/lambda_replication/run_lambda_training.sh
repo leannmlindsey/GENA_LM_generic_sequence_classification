@@ -128,7 +128,10 @@ for W in ${WINDOWS}; do
     for V in ${VARIANTS}; do
         variant_preset "${V}"
 
-        # Finetune jobs (one per seed)
+        # Finetune jobs (one per seed). EMBEDDING_ONLY=true skips these (fine-tuning
+        # is already done) and submits only the embedding job below — used to
+        # (re)generate the saved probe artifacts for the best-model selection.
+        if [ "${EMBEDDING_ONLY:-false}" != "true" ]; then
         for SEED in ${SEEDS}; do
             JOB="ft_${W}_${V}_s${SEED}"
             echo "    submitting ${JOB}..."
@@ -141,6 +144,7 @@ for W in ${WINDOWS}; do
                 "${SCRIPT_DIR}/lambda_finetune_job.sh"
             NUM_JOBS=$((NUM_JOBS + 1))
         done
+        fi
 
         # Embedding-analysis job (per variant; pretrained base model)
         JOB="emb_${W}_${V}"

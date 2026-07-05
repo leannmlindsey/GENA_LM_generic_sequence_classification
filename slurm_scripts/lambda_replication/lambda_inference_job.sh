@@ -64,21 +64,39 @@ WINNERS_JSON="${REPL_OUTPUT_DIR}/winners.json"
 
 # Extract winner checkpoint path for this variant.
 eval "$(python "${SCRIPT_DIR_LR}/print_winner_exports.py" "${WINNERS_JSON}" "${VARIANT}")"
-echo "  winner seed:   ${WINNER_SEED}"
-echo "  winner path:   ${WINNER_PATH}"
+echo "  winner type:   ${WINNER_TYPE:-finetune}"
+echo "  winner path:   ${WINNER_PATH}${WINNER_HEAD_PATH}"
 
 OUTPUT_DIR_JOB="${REPL_OUTPUT_DIR}/inference/${VARIANT}"
 mkdir -p "${OUTPUT_DIR_JOB}"
 OUTPUT_CSV="${OUTPUT_DIR_JOB}/${OUTPUT_FILENAME}"
 
-python inference_gena_lm.py \
-    --input_csv "${INPUT_CSV}" \
-    --model_path "${WINNER_PATH}" \
-    --output_csv "${OUTPUT_CSV}" \
-    --batch_size ${INF_BATCH_SIZE} \
-    --max_length ${MAX_LENGTH} \
-    --threshold ${THRESHOLD} \
-    --save_metrics \
-    ${PRECISION_FLAG}
+if [ "${WINNER_TYPE:-finetune}" = "finetune" ]; then
+    python inference_gena_lm.py \
+        --input_csv "${INPUT_CSV}" \
+        --model_path "${WINNER_PATH}" \
+        --output_csv "${OUTPUT_CSV}" \
+        --batch_size ${INF_BATCH_SIZE} \
+        --max_length ${MAX_LENGTH} \
+        --threshold ${THRESHOLD} \
+        --save_metrics \
+        ${PRECISION_FLAG}
+else
+    # Probe winner (linear_probe | three_layer_nn): deploy the saved probe on the
+    # base model. max_length MUST match what embedding_analysis_gena_lm.py used.
+    SCALER_ARG=()
+    [ -n "${WINNER_SCALER_PATH:-}" ] && SCALER_ARG=(--scaler_path "${WINNER_SCALER_PATH}")
+    python inference_embedding_head_gena_lm.py \
+        --model_path "${BASE_MODEL}" \
+        --head_type "${WINNER_TYPE}" \
+        --head_path "${WINNER_HEAD_PATH}" \
+        "${SCALER_ARG[@]}" \
+        --input_csv "${INPUT_CSV}" \
+        --output_csv "${OUTPUT_CSV}" \
+        --batch_size ${INF_BATCH_SIZE} \
+        --max_length ${MAX_LENGTH} \
+        --threshold ${THRESHOLD} \
+        --save_metrics
+fi
 
 echo "Done: $(date)  -> ${OUTPUT_CSV}"

@@ -63,8 +63,8 @@ WINNERS_JSON="${REPL_OUTPUT_DIR}/winners.json"
 [ -f "${WINNERS_JSON}" ] || { echo "ERROR: ${WINNERS_JSON} not found (run stage 2 selection first)"; exit 1; }
 
 eval "$(python "${SCRIPT_DIR_LR}/print_winner_exports.py" "${WINNERS_JSON}" "${VARIANT}")"
-echo "  winner seed:   ${WINNER_SEED}"
-echo "  winner path:   ${WINNER_PATH}"
+echo "  winner type:   ${WINNER_TYPE:-finetune}"
+echo "  winner path:   ${WINNER_PATH}${WINNER_HEAD_PATH}"
 
 OUTPUT_DIR_JOB="${REPL_OUTPUT_DIR}/inference/${VARIANT}"
 mkdir -p "${OUTPUT_DIR_JOB}"
@@ -74,16 +74,40 @@ mkdir -p "${OUTPUT_DIR_JOB}"
 GW_TMP="${OUTPUT_DIR_JOB}/_gw_tmp"
 rm -rf "${GW_TMP}"; mkdir -p "${GW_TMP}"
 
-python inference_gena_lm_dir.py \
-    --input_dir "${GENOME_WIDE_DIR}" \
-    --output_dir "${GW_TMP}" \
-    --model_path "${WINNER_PATH}" \
-    --batch_size ${INF_BATCH_SIZE} \
-    --max_length ${MAX_LENGTH} \
-    --threshold ${THRESHOLD} \
-    --pattern "*.csv" \
-    --save_metrics \
-    ${PRECISION_FLAG}
+if [ "${WINNER_TYPE:-finetune}" = "finetune" ]; then
+    python inference_gena_lm_dir.py \
+        --input_dir "${GENOME_WIDE_DIR}" \
+        --output_dir "${GW_TMP}" \
+        --model_path "${WINNER_PATH}" \
+        --batch_size ${INF_BATCH_SIZE} \
+        --max_length ${MAX_LENGTH} \
+        --threshold ${THRESHOLD} \
+        --pattern "*.csv" \
+        --save_metrics \
+        ${PRECISION_FLAG}
+else
+    # Probe winner: loop the genome CSVs, applying the saved probe per file. Output
+    # <stem>_predictions.csv into GW_TMP; the relocate step below prepends the
+    # genome_wide_ prefix the harvest globs (same as the fine-tuned dir path).
+    SCALER_ARG=()
+    [ -n "${WINNER_SCALER_PATH:-}" ] && SCALER_ARG=(--scaler_path "${WINNER_SCALER_PATH}")
+    shopt -s nullglob
+    for csv in "${GENOME_WIDE_DIR}"/*.csv; do
+        stem="$(basename "${csv}" .csv)"
+        python inference_embedding_head_gena_lm.py \
+            --model_path "${BASE_MODEL}" \
+            --head_type "${WINNER_TYPE}" \
+            --head_path "${WINNER_HEAD_PATH}" \
+            "${SCALER_ARG[@]}" \
+            --input_csv "${csv}" \
+            --output_csv "${GW_TMP}/${stem}_predictions.csv" \
+            --batch_size ${INF_BATCH_SIZE} \
+            --max_length ${MAX_LENGTH} \
+            --threshold ${THRESHOLD} \
+            --save_metrics
+    done
+    shopt -u nullglob
+fi
 
 # Move outputs up, guaranteeing a genome_wide_ prefix on predictions/metrics so
 # the harvest pipeline matches genome_wide_<asm>_*_predictions.csv. summary.json
